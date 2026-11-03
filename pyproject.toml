@@ -1,0 +1,56 @@
+# pyproject.toml is the single config file for a modern Python project (PEP 621).
+# uv reads [project] and [dependency-groups]; Ruff, pyright and pytest read their [tool.*] sections.
+
+[project]
+name = "jobradar"
+version = "0.1.0"
+description = "Job-market intelligence: ingestion, LLM enrichment, RAG and an agent over job postings."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.1",
+    "psycopg[binary]>=3.3.6",
+    "pydantic-settings>=2.16.2",
+    "sqlalchemy>=2.1.6",
+    "typer>=0.27.3",
+]
+
+# Installs a `jobradar` command that calls the Typer app in src/jobradar/cli.py.
+[project.scripts]
+jobradar = "jobradar.cli:app"
+
+# A build backend is what turns src/jobradar into an installable package.
+# uv installs the project itself in editable mode, so code changes apply without reinstalling.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F: pycodestyle and pyflakes basics; I: import sorting; UP: modern syntax;
+# B: likely bugs (bugbear); S: security checks (bandit), e.g. hardcoded passwords.
+select = ["E", "F", "I", "UP", "B", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is how pytest checks things; S101 flags it everywhere else.
+"tests/*" = ["S101"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+include = ["src", "tests", "migrations"]
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: needs the Postgres test database (make up)"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.7.0",
+    "pyright>=1.1.414",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]

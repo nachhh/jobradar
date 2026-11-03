@@ -1,0 +1,36 @@
+# Hooks that run on `git commit`, on the staged files only. A failing hook blocks the commit.
+# `make install` activates them; `uv run pre-commit run --all-files` runs them on everything.
+# `uv run pre-commit autoupdate` bumps the pinned versions below.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files # blocks accidentally committed datasets or model files
+        args: ['--maxkb=500']
+      - id: detect-private-key
+
+  # Ruff runs from the project's own environment (`uv run`), so the hook always uses the
+  # same Ruff version as `make lint` and CI, pinned in uv.lock.
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+
+  # Scans staged changes for API keys, tokens and passwords.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks

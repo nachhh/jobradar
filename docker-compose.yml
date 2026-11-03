@@ -1,0 +1,35 @@
+# Local infrastructure. `make up` starts it; `make down` stops it (data survives in the volume).
+# Later phases add services here (Langfuse in Phase 4).
+
+# Fixed project name. Without it, Compose names containers and volumes after the folder,
+# so renaming or re-cloning the repo into another folder would start a new, empty database.
+name: jobradar
+
+services:
+  db:
+    # Official Postgres 17 image with the pgvector extension compiled in.
+    # The extension still has to be enabled per database: the first Alembic migration does that.
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: jobradar
+      POSTGRES_PASSWORD: jobradar # local-only credentials; nothing sensitive lives in this database
+      POSTGRES_DB: jobradar
+    ports:
+      # host:container. 5434 on the host avoids clashing with other local Postgres instances on 5432.
+      - '5434:5432'
+    volumes:
+      # Named volume: data survives `docker compose down` (only `down -v` deletes it).
+      - pgdata:/var/lib/postgresql/data
+      # Scripts in this folder run once, on the very first start with an empty volume.
+      # They create the jobradar_test database used by the integration tests.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Compose marks the container "healthy" once Postgres accepts connections;
+      # `make up` waits for that (--wait) before returning.
+      test: ['CMD-SHELL', 'pg_isready -U jobradar -d jobradar']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

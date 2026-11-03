@@ -1,0 +1,46 @@
+# Runs on every push and pull request: the same checks as `make check`, on a clean machine.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    # A throwaway Postgres + pgvector container next to the job, like `make up` locally.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: jobradar
+          POSTGRES_PASSWORD: jobradar
+          POSTGRES_DB: jobradar_test # CI only needs the test database
+        ports: ['5432:5432']
+        # Don't start the steps until Postgres accepts connections.
+        options: >-
+          --health-cmd "pg_isready -U jobradar"
+          --health-interval 2s
+          --health-retries 20
+
+    # Real environment variables: pydantic-settings reads them (there's no .env in CI).
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://jobradar:jobradar@localhost:5432/jobradar_test
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # full history, so gitleaks can scan every commit
+      - uses: astral-sh/setup-uv@v10.2.0 # pinned exactly; this action publishes no major tags
+        with:
+          version: '0.13.4'
+      # --locked: install exactly what uv.lock says, and fail if uv.lock is out of date with pyproject.toml
+      # (e.g. a dependency was added to pyproject.toml but the updated lock wasn't committed).
+      # (--frozen would also install from uv.lock, but without checking that it's up to date.)
+      - run: uv sync --locked
+      - run: make lint
+      - run: make typecheck
+      - run: make test
+      - name: Scan the history for secrets
+        run: uv run pre-commit run gitleaks --all-files

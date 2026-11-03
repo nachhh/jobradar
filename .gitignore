@@ -1,0 +1,23 @@
+# Secrets and local settings
+.env
+
+# Private notes and early experiments (the experiments contain a hardcoded API key)
+notes/
+ai_hello_world/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+
+# Data written by pipelines (Phase 1 onward)
+data/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
