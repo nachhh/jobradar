@@ -30,14 +30,15 @@ Two different questions, solved in two different places:
 ```
 pipeline_runs          one row per run
 pipeline_run_sources   one row per (run, source): status, counts, error
-raw_postings           append-only payloads, one row per distinct version of a posting
+raw_postings           payloads as received, one row per distinct version of a posting
 postings               clean, one row per (source, src_posting_id), upserted
 rejected_postings      records that failed validation, with the reason (quarantine)
 ```
 
 - **`pipeline_runs`:** `run_id` (UUID), `pipeline` (`ingest`), `trigger` (`manual` or `scheduled`), `params` (JSONB: sources, queries), `git_sha`, `status` (`running`, `succeeded`, `partial`, `failed`), `started_at`, `finished_at`.
 - **`pipeline_run_sources`:** primary key `(run_id, source)`. `status`, `stage` reached (`extracted`, `transformed`), `started_at`, `finished_at`, counts (`fetched`, `inserted`, `updated`, `unchanged`, `rejected`), `error_type`, `error_message`. Run totals are not stored on `pipeline_runs`; they are a `SUM` over this table (no duplicated data).
-- **`raw_postings`:** `id`, `run_id`, `source`, `src_posting_id`, `payload` (JSONB, exactly as received), `payload_hash`, `fetched_at`. Unique on `(source, src_posting_id, payload_hash)`: an unchanged posting fetched again is not stored again, so the table holds one row per *version* of each posting. That history makes it possible to rebuild `postings` from raw at any time, for example after fixing a parser bug, without calling the APIs again.
+- **`raw_postings`:** `id`, `source`, `src_posting_id`, `payload` (JSONB, exactly as received), `payload_hash`, `first_run_id`, `first_fetched_at`, `last_run_id`, `last_fetched_at`. Unique on `(source, src_posting_id, payload_hash)`: an unchanged posting fetched again is not stored again, so the table holds one row per *version* of each posting. That history makes it possible to rebuild `postings` from raw at any time, for example after fixing a parser bug, without calling the APIs again.
+  - The payload columns never change. `last_run_id` and `last_fetched_at` are refreshed every time the API returns that version again: they record that the posting was *seen* in a run. Without them, an unchanged posting would leave no trace of the run, and the transform could not tell "unchanged and still listed" from "closed" (both add no new version).
 - **`postings`:** `id`, `source`, `src_posting_id` (unique together), `url`, `title`, `company`, `location_text`, `remote` (`remote`, `hybrid`, `onsite` or `unknown`), `seniority`, `salary_min`, `salary_max`, `salary_text`, `posted_at`, `description` (plain text, HTML stripped), `tags`, `content_hash`, `first_seen_at`, `last_seen_at`, `last_run_id`, `is_active`, `dedup_key`, `canonical_id` (nullable self-reference).
 - **Closed postings:** GetOnBoard and Remotive drop a posting from their API when it closes. After a successful extract of a source, its postings not seen in that run get `is_active = false`. HN has no closed signal, so HN postings become inactive when their thread is more than two months old.
 - **`rejected_postings`:** `run_id`, `source`, `src_posting_id`, `payload`, `reason`.
@@ -50,11 +51,11 @@ Two stages with a durable hand-off between them: what was fetched is committed t
 
 **Stage 1, extract-load (per source, one transaction each):**
 1. Fetch every page with `httpx`: timeouts, retries with exponential backoff on 429 and 5xx, a descriptive user agent, and a delay between requests. Within the batch, duplicates by `(source, src_posting_id)` are dropped in memory (pagination can overlap).
-2. `COPY` the payloads into a temporary staging table (fast bulk load), then insert into `raw_postings` with `ON CONFLICT DO NOTHING` (COPY itself cannot handle conflicts).
+2. `COPY` the payloads into a temporary staging table (fast bulk load), then insert into `raw_postings` with `ON CONFLICT (source, src_posting_id, payload_hash) DO UPDATE SET last_run_id, last_fetched_at` (COPY itself cannot handle conflicts). A new version is a new row; a version seen before only gets its "last seen" stamp.
 3. Record `fetched` and stage `extracted` in `pipeline_run_sources`, and commit. A crash before the commit leaves nothing behind for that source.
 
 **Stage 2, transform (per source, one transaction each):**
-1. Read the source's raw rows for this run, and parse each with a per-source parser into one shared Pydantic model, `PostingIn`. Records that fail validation go to `rejected_postings` with the reason.
+1. Read the source's raw rows seen in this run (`last_run_id` = this run, which includes unchanged postings), and parse each with a per-source parser into one shared Pydantic model, `PostingIn`. Records that fail validation go to `rejected_postings` with the reason.
 2. Upsert into `postings`: `INSERT … ON CONFLICT (source, src_posting_id) DO UPDATE … WHERE postings.content_hash IS DISTINCT FROM excluded.content_hash`. New rows count as inserted, changed rows as updated; for unchanged rows only `last_seen_at` moves.
 3. Update `is_active`, record the counts and stage `transformed`, and commit.
 
@@ -116,6 +117,7 @@ LLM extraction and embeddings (Phase 2), search, a UI, any paid source, LinkedIn
 ## Decisions
 
 - Raw storage: one row per version of a posting (2026-11-02).
+- Raw rows carry `last_run_id`/`last_fetched_at`, refreshed on every fetch, so each run records which postings it saw; preferred over a separate append-only sightings table for simplicity (2026-11-03).
 - HN: the last two monthly threads (2026-11-02).
 - GetOnBoard: whole categories instead of keyword searches (2026-11-02).
 - **Open:** whether to add an orchestrator, and which one (see the project overview).

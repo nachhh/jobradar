@@ -3,21 +3,36 @@
 Concepts:
 - The *engine* owns a pool of connections to Postgres. Create it once per process and reuse it;
   opening a fresh connection per query is slow (TCP + auth handshake each time).
-- *Base* is the parent class of every ORM model (tables arrive in Phase 1). Alembic compares
+- *Base* is the parent class of every ORM model (see models.py). Alembic compares
   Base.metadata with the live database to autogenerate migrations.
 """
 
 from dataclasses import dataclass
 from functools import lru_cache
 
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, MetaData, create_engine, text
 from sqlalchemy.orm import DeclarativeBase
 
 from jobradar.config import get_settings
 
+# Name every constraint and index by a fixed pattern instead of letting Postgres invent names
+# (like "postings_source_src_posting_id_key"). Alembic needs a constraint's name to drop or alter
+# it later, so predictable names make future migrations writable by hand and reproducible.
+# %(column_0_name)s = the first column covered; %(column_0_N_name)s = all of them joined by "_";
+# %(constraint_name)s = the name we give a CHECK. Postgres truncates names past 63 characters.
+NAMING_CONVENTION = {
+    "pk": "pk_%(table_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "uq": "uq_%(table_name)s_%(column_0_N_name)s",
+    "ix": "ix_%(table_name)s_%(column_0_N_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+}
+
 
 class Base(DeclarativeBase):
-    """Parent class for all ORM models. Empty in Phase 0."""
+    """Parent class for all ORM models; every table registers itself on Base.metadata."""
+
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
 @lru_cache

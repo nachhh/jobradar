@@ -19,6 +19,12 @@ JobRadar: ingestion, LLM enrichment, retrieval and a LangGraph agent over public
 5. **Free tiers first.** Ask before adding anything that costs money.
 6. New architectural decisions are written as an ADR in `docs/adr/`.
 
+## Git workflow
+
+- **One branch per phase**, cut from `main`: `jobradar-<gituser>-p<N>-<brief-desc>`, where `<gituser>` is the GitHub handle. Example: `jobradar-nachhh-p1-postings-ingestion`.
+- **Commit messages:** `[jobradar][p<N>] <what was done>`. Example: `[jobradar][p1] Add ingestion tables and migration`.
+- Commits and pushes still happen only when the owner asks (rule 3).
+
 ## Environment
 
 Intel Mac, 16 GB RAM, no GPU. Python 3.12 (ML libraries lag on newer versions on Intel macOS). Check that a library ships Intel-macOS builds before adding it.
