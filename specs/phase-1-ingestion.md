@@ -1,6 +1,6 @@
 # Phase 1: Ingestion
 
-- **Status:** Accepted (2026-11-02)
+- **Status:** Accepted (2026-11-02). Built and accepted (2026-11-04); see the acceptance report.
 
 ## Goal
 
@@ -144,7 +144,7 @@ The order the phase is built in, one reviewable piece at a time. Steps are about
 | s4 | Pipeline: `COPY` load, run ledger, advisory lock, checks, `--resume`, `--force`, `transform --rebuild`, CLI | Done (`0751cfc`) |
 | s5 | Cross-source linking (`pg_trgm`, union-find over candidate pairs) and the `current_postings` view | Done (`533d28c`) |
 | s6 | Scheduling (documented `crontab` line) and the acceptance run on real data | Done (`4fdab4a`) |
-| s7 | Two more sources, Himalayas and Jobicy: extractor, parser and fixtures each; migration `0004` (`source` CHECK constraints, `salary_currency`/`salary_period`), per-source fetch intervals, optional `HIMALAYAS_API_KEY` | Done |
+| s7 | Two more sources, Himalayas and Jobicy: extractor, parser and fixtures each; migration `0004` (`source` CHECK constraints, `salary_currency`/`salary_period`), per-source fetch intervals, optional `HIMALAYAS_API_KEY` | Done (`abf545d`) |
 
 Steps s1 to s3 were committed before this convention, as `[jobradar][p1] …`.
 
