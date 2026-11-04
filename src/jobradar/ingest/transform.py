@@ -10,6 +10,13 @@ The steps, all set-based (a handful of SQL statements per source, not one per po
 2. Upsert: insert new postings; rewrite existing ones only when their content_hash changed.
 3. Stamp every posting the API returned (last_seen_at, last_run_id, is_active = true).
 4. Deactivate the postings that closed, by the source's rule (spec, "Closed postings").
+
+Two variants:
+- `max_reject_rate`: when too many records fail to parse (an API change, most likely), stop after
+  step 1. The rejections are kept as evidence, and `postings` is left untouched.
+- `rebuild=True` (`jobradar transform --rebuild`): read the latest version of *every* posting in
+  raw_postings instead of one run's, and skip steps 3 and 4: a rebuild re-parses what was already
+  fetched (after a parser fix), it says nothing about what is still listed.
 """
 
 import uuid
@@ -17,7 +24,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from pydantic import ValidationError
-from sqlalchemy import Connection, bindparam, insert, literal_column, select, text, update
+from sqlalchemy import Connection, bindparam, delete, insert, literal_column, select, text, update
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from jobradar.ingest.sources import PARSERS, hn
@@ -46,23 +54,43 @@ CONTENT_COLUMNS = (
 
 @dataclass(frozen=True)
 class TransformCounts:
+    read: int  # raw rows read (= parsed + rejected)
     inserted: int
     updated: int
     unchanged: int
     rejected: int
     deactivated: int  # logged by the pipeline; not a ledger column
+    applied: bool = True  # False when the reject rate stopped the transform after parsing
+
+    @property
+    def reject_rate(self) -> float:
+        return self.rejected / self.read if self.read else 0.0
 
 
 def transform_source(
-    conn: Connection, run_id: uuid.UUID, source: Source, *, now: datetime | None = None
+    conn: Connection,
+    run_id: uuid.UUID,
+    source: Source,
+    *,
+    now: datetime | None = None,
+    max_reject_rate: float | None = None,
+    rebuild: bool = False,
 ) -> TransformCounts:
-    """Transform one source's raw rows seen in `run_id`. `now` is a parameter so tests can fix it."""
+    """Transform one source's raw rows seen in `run_id` (or all of them, with `rebuild`).
+
+    `now` is a parameter so tests can fix it. Rejections are recorded under `run_id` either way.
+    """
     now = now or datetime.now(UTC)
-    raw_rows = conn.execute(
-        select(RawPosting.src_posting_id, RawPosting.payload).where(
-            RawPosting.last_run_id == run_id, RawPosting.source == source
+    query = select(RawPosting.src_posting_id, RawPosting.payload).where(RawPosting.source == source)
+    if rebuild:
+        # DISTINCT ON keeps the first row of each posting under the ORDER BY: its newest version.
+        # .ext() attaches a dialect-specific clause; distinct_on is Postgres-only, hence its import path.
+        query = query.ext(distinct_on(RawPosting.src_posting_id)).order_by(
+            RawPosting.src_posting_id, RawPosting.last_fetched_at.desc(), RawPosting.id.desc()
         )
-    ).all()
+    else:
+        query = query.where(RawPosting.last_run_id == run_id)
+    raw_rows = conn.execute(query).all()
 
     # 1. Parse. Any exception from a parser is that record's problem, not the run's: pydantic's
     # ValidationError for broken rules, KeyError/TypeError for a payload missing what we rely on.
@@ -84,8 +112,14 @@ def transform_source(
             )
         else:
             valid.append(posting.to_row() | {"last_run_id": run_id})
+    # Transforming the same run twice (--resume) must not record its rejections twice.
+    conn.execute(
+        delete(RejectedPosting).where(RejectedPosting.run_id == run_id, RejectedPosting.source == source)
+    )
     if rejected:
         conn.execute(insert(RejectedPosting), rejected)  # a list of dicts = one executemany
+    if max_reject_rate is not None and raw_rows and len(rejected) / len(raw_rows) > max_reject_rate:
+        return TransformCounts(len(raw_rows), 0, 0, 0, len(rejected), 0, applied=False)
 
     # 2. Upsert.
     inserted = updated = 0
@@ -108,6 +142,10 @@ def transform_source(
         inserted = sum(1 for r in results if r.was_inserted)
         updated = len(results) - inserted
 
+    unchanged = len(valid) - inserted - updated
+    if rebuild:
+        return TransformCounts(len(raw_rows), inserted, updated, unchanged, len(rejected), 0)
+
     # 3. Everything the API returned this run is still listed, even if its new version was
     # rejected: the old clean row stays, and it is not closed.
     seen_ids = [row.src_posting_id for row in raw_rows]
@@ -121,13 +159,7 @@ def transform_source(
     # 4. Close what closed.
     deactivated = _deactivate(conn, run_id, source, seen_ids, now)
 
-    return TransformCounts(
-        inserted=inserted,
-        updated=updated,
-        unchanged=len(valid) - inserted - updated,
-        rejected=len(rejected),
-        deactivated=deactivated,
-    )
+    return TransformCounts(len(raw_rows), inserted, updated, unchanged, len(rejected), deactivated)
 
 
 def _deactivate(

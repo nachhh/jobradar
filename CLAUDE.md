@@ -30,7 +30,8 @@ The owner is learning the AI/LLM stack through this project. Keep each of these 
 ## Git workflow
 
 - **One branch per phase**, cut from `main`: `jobradar-<gituser>-p<N>-<brief-desc>`, where `<gituser>` is the GitHub handle. Example: `jobradar-nachhh-p1-postings-ingestion`.
-- **Commit messages:** `[jobradar][p<N>] <what was done>`. Example: `[jobradar][p1] Add ingestion tables and migration`.
+- **Steps:** each phase spec has a "Steps" section: the order the phase is built in, with a status per step. Keep it up to date. Steps (building the code) are not the pipeline's stages (what a run does).
+- **Commit messages:** `[jobradar][p<N>][s<X>] <what was done>`, where `s<X>` is the step. A step can take several commits (fixes, follow-ups). Example: `[jobradar][p1][s4] Add ingest pipeline, run ledger and CLI`.
 - Commits and pushes still happen only when the owner asks (rule 3).
 
 ## Environment

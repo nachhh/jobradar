@@ -13,7 +13,7 @@ Verified on 2026-11-02. All three return a stable ID per posting.
 | Source | Endpoint | Source ID | Notes |
 |---|---|---|---|
 | GetOnBoard | `GET /api/v0/categories/{category}/jobs?page=…&per_page=100&expand[]=company&expand[]=seniority&expand[]=tags&expand[]=modality` (`expand[]` inlines related objects, which otherwise come back as bare IDs) | `id` (a slug, e.g. `data-engineer-acme-remote-9cff`) | LATAM. Paginated. Whole categories, not keyword searches: `programming`, `data-science-analytics`, `machine-learning-ai`, `sysadmin-devops-qa`. Structured `seniority`, `min_salary`, `max_salary`, `modality`. HTML in description fields. |
-| Remotive | `GET /api/remote-jobs` (all categories in **one** request, no paging) | `id` (integer) | Terms: link back to the posting URL and credit Remotive; **at most 4 requests a day**; jobs are delayed 24 h. Test fixtures are hand-written from the docs, never recorded with a live request. |
+| Remotive | `GET /api/remote-jobs` (all categories in **one** request, no paging) | `id` (integer) | Terms: link back to the posting URL and credit Remotive; **at most 4 requests a day**; jobs are delayed 24 h. Test fixtures are hand-written from the docs, never recorded with a live request. **The free API returns only 10 jobs in total** (verified 2026-11-04: `"total-job-count": 10`); the full list is a paid API. |
 | Hacker News | Algolia: `search_by_date?tags=story,author_whoishiring` for the last two "Ask HN: Who is hiring?" stories, then `items/{story_id}` for each, whose top-level comments are the postings (replies dropped) | comment `objectID` (integer) | Free text, usually `Company \| Role \| Location \| REMOTE \| …` on the first line. Company and title can be missing; Phase 2's LLM extraction fills the gaps. Deleted comments are skipped. |
 
 Ingestion is deliberately independent of any resume: it builds one broad corpus, and matching against a resume happens later (Phases 2 and 3), so the same corpus serves any profile.
@@ -62,16 +62,16 @@ Two stages with a durable hand-off between them: what was fetched is committed t
 
 **Stage 3, link duplicates** across sources (see Cross-source duplicates).
 
-**Checks:** a source that returns 0 records, or rejects more than 20% of them, is marked `failed` (an API change is the likely cause). The run is `succeeded` if every source succeeded, `partial` if some did, and `failed` if none did.
+**Checks:** a source that returns 0 records, or rejects more than 20% of them, is marked `failed` (an API change is the likely cause). A source returning 0 records fails before its transform, so "not seen → inactive" can't close everything. When the reject rate is exceeded, the rejections are kept as evidence but `postings` is not touched; `--resume` re-transforms after the parser is fixed. The run is `succeeded` if every source succeeded, `partial` if some did, and `failed` if none did.
 
 **Recovery:**
 - Loads are idempotent, so re-running everything is always safe and gives the same result. That is the guarantee.
-- As an optimization, `jobradar ingest --resume <run_id>` skips the sources that run already finished and re-transforms sources that reached `extracted` without fetching them again.
+- As an optimization, `jobradar ingest --resume <run_id>` skips the sources that run already finished and re-transforms sources that reached `extracted` without fetching them again. Only the latest ingest run can be resumed: a newer run has re-stamped the raw rows, so an older run would see an incomplete batch. Re-transforming a run replaces its earlier rejections instead of duplicating them.
 - `jobradar transform --rebuild` rebuilds `postings` from the whole of `raw_postings`, for example after a parser fix.
 
 **Concurrency:** a run takes a Postgres advisory lock with `pg_try_advisory_lock`. This is pessimistic locking (claim first, then work) that fails fast: a second run started while one is active exits with a message instead of waiting. The unique constraints would already prevent duplicate rows if two runs overlapped; the lock prevents duplicated work and double API calls (Remotive's daily limit).
 
-**Remotive limit:** the Remotive source is skipped if it last succeeded less than 6 hours ago, unless `--force` is given.
+**Remotive limit:** the Remotive source is skipped if its last completed extract (stage `extracted` reached, whatever happened afterwards, since the request was spent either way) finished less than 6 hours ago, unless `--force` is given. If every requested source is skipped, no run is created.
 
 ## Cross-source duplicates
 
@@ -86,7 +86,7 @@ Two stages with a durable hand-off between them: what was fetched is committed t
 
 ## CLI
 
-- `jobradar ingest [--source getonboard|remotive|hn] [--force] [--resume RUN_ID]`
+- `jobradar ingest [--source getonboard|remotive|hn] [--force] [--resume RUN_ID] [--trigger manual|scheduled]`; exits non-zero unless the run succeeded, so cron can notice.
 - `jobradar transform --rebuild`
 - `jobradar runs [--limit N]`: the most recent runs, with per-source status and counts.
 - Each stage is a plain Python function that the CLI calls, so an orchestrator can wrap the same functions later without changing them. Until then, scheduling is a documented `crontab` line (twice a day).
@@ -115,6 +115,21 @@ LLM extraction and embeddings (Phase 2), search, a UI, any paid source, LinkedIn
 3. Killing a run mid-load leaves the database as it was before that source started.
 4. `make check` passes, including the integration tests above, locally and in CI.
 5. At least one cross-source duplicate is linked on real data, or the report explains why none exist.
+
+## Steps
+
+The order the phase is built in, one reviewable piece at a time. Steps are about building the code; they are not the pipeline's *stages* (extract-load, transform, link), which describe what every run does. Commits name their step: `[jobradar][p1][s<N>] <description>`.
+
+| Step | Scope | Status |
+|---|---|---|
+| s1 | Schema: ORM models, migration `0002`, schema tests | Done (`d46666c`) |
+| s2 | HTTP `Fetcher` (retries, backoff, polite interval) and the three extractors, with fixtures | Done (`bd98296`) |
+| s3 | `PostingIn`, a parser per source, and the transform (upsert, quarantine, closed postings) | Done (`a04d28c`) |
+| s4 | Pipeline: `COPY` load, run ledger, advisory lock, checks, `--resume`, `--force`, `transform --rebuild`, CLI | Done |
+| s5 | Cross-source linking (`pg_trgm`) and the `current_postings` view | To do |
+| s6 | Scheduling (documented `crontab` line) and the acceptance run on real data | To do |
+
+Steps s1 to s3 were committed before this convention, as `[jobradar][p1] …`.
 
 ## Decisions
 

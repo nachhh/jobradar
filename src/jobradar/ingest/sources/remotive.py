@@ -9,8 +9,13 @@ Response shape (documented at remotive.com/api-documentation):
     {"job-count": N, "jobs": [{"id", "url", "title", "company_name", "category", "tags",
      "job_type", "publication_date", "candidate_required_location", "salary", "description"}, …]}
 
-The test fixture is written from that documentation, not recorded, so that no daily request is
-spent on tests; it will be replaced with payloads from the first real run (kept in raw_postings).
+Verified on 2026-11-04: the free API returns only 10 jobs in total ("total-job-count": 10), mixed
+categories, despite the docs' "default: all"; the full list is a paid API. Each payload also has a
+`company_logo_url` field, unused here.
+
+The test fixture is hand-written from the documentation (so tests spend no daily request). The
+first live run confirmed it has the real shape; it stays hand-written because it's built to cover
+cases (an empty salary, a "S.A." company) that 10 live jobs may not.
 """
 
 from datetime import UTC, datetime
