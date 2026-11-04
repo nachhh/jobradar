@@ -58,7 +58,7 @@ Two stages with a durable hand-off between them: what was fetched is committed t
 **Stage 2, transform (per source, one transaction each):**
 1. Read the source's raw rows seen in this run (`last_run_id` = this run, which includes unchanged postings), and parse each with a per-source parser into one shared Pydantic model, `PostingIn`. Records that fail validation go to `rejected_postings` with the reason.
 2. Upsert into `postings`: `INSERT … ON CONFLICT (source, src_posting_id) DO UPDATE … WHERE postings.content_hash IS DISTINCT FROM excluded.content_hash`. New rows count as inserted, changed rows as updated; for unchanged rows only `last_seen_at` moves.
-3. Update `is_active`, record the counts and stage `transformed`, and commit.
+3. Stamp every posting returned by this run's extract (`last_seen_at`, `last_run_id`, `is_active = true`), including postings whose new version was rejected: they are still listed, so their previous clean row stays active. Then deactivate per the closed-postings rules, record the counts and stage `transformed`, and commit.
 
 **Stage 3, link duplicates** across sources (see Cross-source duplicates).
 

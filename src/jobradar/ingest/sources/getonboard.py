@@ -9,9 +9,13 @@ modality) come back as bare IDs unless listed in `expand[]`, which inlines them;
 request per company and keeps everything the parser needs in the posting's own payload.
 """
 
+from typing import Any
+
 from jobradar.ingest.http import Fetcher
-from jobradar.ingest.sources.base import ExtractError, RawRecord, dedupe, make_record
-from jobradar.models import Source
+from jobradar.ingest.posting import PostingIn, utc_from_timestamp
+from jobradar.ingest.sources.base import ExtractError, Payload, RawRecord, dedupe, make_record
+from jobradar.ingest.text import html_to_text
+from jobradar.models import Remote, Source
 
 BASE_URL = "https://www.getonbrd.com/api/v0"
 
@@ -58,3 +62,66 @@ def _extract_category(fetcher: Fetcher, category: str) -> list[RawRecord]:
         if page >= MAX_PAGES_PER_CATEGORY:
             raise ExtractError(f"getonboard {category}: more than {MAX_PAGES_PER_CATEGORY} pages")
         page += 1
+
+
+# --- Parse (stage 2: transform) ---------------------------------------------------------------
+
+# GetOnBoard's remote_modality → our Remote values. "remote_local" is remote within a country or
+# region (e.g. "remote, Chile only"); for the remote/hybrid/onsite question it's still remote.
+REMOTE_MODALITY = {
+    "fully_remote": Remote.REMOTE,
+    "remote_local": Remote.REMOTE,
+    "hybrid": Remote.HYBRID,
+    "no_remote": Remote.ONSITE,
+}
+
+# The description is split into HTML sections, each with an optional headline (sometimes ""). They
+# are joined in this order, with these labels when the posting gives none.
+SECTIONS = (
+    ("functions", "Responsibilities"),
+    ("description", "Requirements"),
+    ("desirable", "Nice to have"),
+    ("benefits", "Benefits"),
+    ("projects", "About the company"),
+)
+
+
+def parse(payload: Payload) -> PostingIn:
+    """One GetOnBoard job (as stored in raw_postings) → PostingIn.
+
+    Missing required keys raise KeyError on purpose: the transform turns it into a rejection
+    with the reason, which is how an API change becomes visible.
+    """
+    attrs = payload["attributes"]
+    return PostingIn(
+        source=Source.GETONBOARD,
+        src_posting_id=payload["id"],
+        url=payload["links"]["public_url"],
+        title=attrs["title"],
+        company=_related(attrs, "company"),
+        location_text=", ".join(attrs.get("countries") or []),
+        remote=REMOTE_MODALITY.get(attrs.get("remote_modality") or "", Remote.UNKNOWN),
+        seniority=_related(attrs, "seniority"),
+        salary_min=attrs.get("min_salary"),
+        salary_max=attrs.get("max_salary"),
+        posted_at=utc_from_timestamp(attrs["published_at"]) if attrs.get("published_at") else None,
+        description=_description(attrs),
+        tags=tuple(tag["attributes"]["name"] for tag in attrs.get("tags", {}).get("data", [])),
+    )
+
+
+def _related(attrs: dict[str, Any], name: str) -> str | None:
+    """The `name` attribute of an expanded relation: {"data": {"attributes": {"name": …}}}."""
+    data = (attrs.get(name) or {}).get("data") or {}
+    return (data.get("attributes") or {}).get("name")
+
+
+def _description(attrs: dict[str, Any]) -> str:
+    """All non-empty sections as plain text, each under its headline."""
+    blocks = []
+    for key, default_label in SECTIONS:
+        body = html_to_text(attrs.get(key))
+        if body:
+            headline = (attrs.get(f"{key}_headline") or default_label).strip()
+            blocks.append(f"{headline}\n{body}")
+    return "\n\n".join(blocks)

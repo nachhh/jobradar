@@ -13,9 +13,13 @@ The test fixture is written from that documentation, not recorded, so that no da
 spent on tests; it will be replaced with payloads from the first real run (kept in raw_postings).
 """
 
+from datetime import UTC, datetime
+
 from jobradar.ingest.http import Fetcher
-from jobradar.ingest.sources.base import ExtractError, RawRecord, dedupe, make_record
-from jobradar.models import Source
+from jobradar.ingest.posting import PostingIn
+from jobradar.ingest.sources.base import ExtractError, Payload, RawRecord, dedupe, make_record
+from jobradar.ingest.text import html_to_text
+from jobradar.models import Remote, Source
 
 URL = "https://remotive.com/api/remote-jobs"
 
@@ -25,3 +29,35 @@ def extract(fetcher: Fetcher) -> list[RawRecord]:
     if not isinstance(body, dict) or not isinstance(body.get("jobs"), list):
         raise ExtractError("remotive: unexpected response shape")
     return dedupe(make_record(Source.REMOTIVE, job.get("id"), job) for job in body["jobs"])
+
+
+# --- Parse (stage 2: transform) ---------------------------------------------------------------
+
+
+def parse(payload: Payload) -> PostingIn:
+    """One Remotive job → PostingIn. Every Remotive job is remote by definition.
+
+    The salary is free text ("$110k - $140k", "USD 4,000 - 5,500 / month"), kept as salary_text;
+    turning it into numbers is left to Phase 2, like HN's free text.
+    """
+    return PostingIn(
+        source=Source.REMOTIVE,
+        src_posting_id=str(payload["id"]),
+        url=payload["url"],
+        title=payload["title"],
+        company=payload.get("company_name"),
+        location_text=payload.get("candidate_required_location"),
+        remote=Remote.REMOTE,
+        salary_text=payload.get("salary"),
+        posted_at=_utc(payload.get("publication_date")),
+        description=html_to_text(payload["description"]),
+        tags=tuple(payload.get("tags") or ()),
+    )
+
+
+def _utc(value: str | None) -> datetime | None:
+    """Remotive dates have no time zone ("2026-10-30T10:15:22"); they are taken as UTC."""
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)

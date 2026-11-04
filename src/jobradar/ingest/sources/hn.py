@@ -10,10 +10,13 @@ Two requests per thread, both free and unauthenticated:
 Verified on 2026-11-03: the October 2026 thread has 259 top-level comments (~470 KB response).
 """
 
+from datetime import datetime
 from typing import Any
 
 from jobradar.ingest.http import Fetcher
+from jobradar.ingest.posting import PostingIn
 from jobradar.ingest.sources.base import ExtractError, Payload, RawRecord, dedupe, make_record
+from jobradar.ingest.text import html_to_text
 from jobradar.models import Source
 
 BASE_URL = "https://hn.algolia.com/api/v1"
@@ -58,3 +61,25 @@ def _posting_payload(comment: dict[str, Any]) -> Payload | None:
     if not comment.get("text") or not comment.get("author"):
         return None
     return {key: value for key, value in comment.items() if key != "children"}
+
+
+# --- Parse (stage 2: transform) ---------------------------------------------------------------
+
+ITEM_URL = "https://news.ycombinator.com/item?id={id}"
+
+
+def parse(payload: Payload) -> PostingIn:
+    """One HN comment → PostingIn, structured fields only (design decision D1).
+
+    Company, title and location live in the free text with no fixed order ("Company | Role | …",
+    "City | Company | …", or plain prose), so they stay NULL and remote stays "unknown". Phase 2's
+    LLM extracts them from the description into its own enrichment table.
+    """
+    return PostingIn(
+        source=Source.HN,
+        src_posting_id=str(payload["id"]),
+        url=ITEM_URL.format(id=payload["id"]),
+        # fromisoformat reads "2026-11-02T16:01:43.000Z" (Python 3.11+ accepts the "Z" for UTC).
+        posted_at=datetime.fromisoformat(payload["created_at"]),
+        description=html_to_text(payload["text"]),
+    )
