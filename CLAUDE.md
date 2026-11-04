@@ -18,6 +18,7 @@ JobRadar: ingestion, LLM enrichment, retrieval and a LangGraph agent over public
 4. **No secrets in the repository.** Settings come from environment variables (`src/jobradar/config.py`); `.env` is git-ignored and `.env.example` lists every variable.
 5. **Free tiers first.** Ask before adding anything that costs money.
 6. New architectural decisions are written as an ADR in `docs/adr/`.
+7. **Diagrams describe what is built.** `docs/diagrams/` (Mermaid) is updated in the same step that changes what a diagram shows. Mermaid's parser is strict (a `:` inside a state-diagram label breaks it), so check that every diagram parses.
 
 ## Learning workflow
 

@@ -57,5 +57,6 @@ Twice a day with `cron`, the Unix job scheduler. Edit your crontab with `crontab
 | Document | Contents |
 |---|---|
 | [specs/](specs/) | Project overview and one spec per phase, written before the code |
+| [docs/diagrams/](docs/diagrams/) | Architecture, data flow, ERD and state machines (Mermaid) |
 | [docs/adr/](docs/adr/) | Architecture Decision Records |
 | [CLAUDE.md](CLAUDE.md) | Working rules for AI coding agents in this repository |
