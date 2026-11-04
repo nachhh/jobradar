@@ -1,0 +1,123 @@
+{
+  "author": "whoishiring",
+  "children": [
+    {
+      "author": "AdriaanvRossum",
+      "children": [
+        {
+          "author": "ayewo",
+          "children": [
+            {
+              "author": "AdriaanvRossum",
+              "children": [],
+              "created_at": "2026-11-02T17:26:08.000Z",
+              "created_at_i": 1793640368,
+              "id": 50340270,
+              "options": [],
+              "parent_id": 50339964,
+              "points": null,
+              "story_id": 50338728,
+              "text": "Yes. That’s right. But fixed amount of hours per contract.<p>Although we are flexible to move days back or forth between weeks.",
+              "title": null,
+              "type": "comment",
+              "url": null
+            }
+          ],
+          "created_at": "2026-11-02T17:08:06.000Z",
+          "created_at_i": 1793639286,
+          "id": 50339964,
+          "options": [],
+          "parent_id": 50338732,
+          "points": null,
+          "story_id": 50338728,
+          "text": "Interesting post!<p>When you say &quot;Full-time, 32h, 24h possible | €5,000&#x2F;month (full-time)&quot; is the €5,000&#x2F;month salary pegged at 40h&#x2F;week so that the actual payment is scaled up&#x2F;down based on the number of hours worked per week?",
+          "title": null,
+          "type": "comment",
+          "url": null
+        },
+        {
+          "author": "AdriaanvRossum",
+          "children": [],
+          "created_at": "2026-11-02T17:38:50.000Z",
+          "created_at_i": 1793641130,
+          "id": 50340467,
+          "options": [],
+          "parent_id": 50338732,
+          "points": null,
+          "story_id": 50338728,
+          "text": "Wow, we get a lot of applicants. Thanks!<p>A tip for the upcoming ones: please tell us about yourself instead of repeating the job ad back to us. Leave your AI off for 10 minutes, and give us those spelling mistakes!",
+          "title": null,
+          "type": "comment",
+          "url": null
+        }
+      ],
+      "created_at": "2026-11-02T16:01:43.000Z",
+      "created_at_i": 1793635303,
+      "id": 50338732,
+      "options": [],
+      "parent_id": 50338728,
+      "points": null,
+      "story_id": 50338728,
+      "text": "Simple Analytics | DevOps Engineer | REMOTE (worldwide, any timezone) | Full-time, 32h, 24h possible | €5,000&#x2F;month (full-time) | <a href=\"https:&#x2F;&#x2F;www.simpleanalytics.com&#x2F;jobs&#x2F;devops\" rel=\"nofollow\">https:&#x2F;&#x2F;www.simpleanalytics.com&#x2F;jobs&#x2F;devops</a><p>Hi HN, I&#x27;m Adriaan. Simple Analytics exists thanks to HN: it started with my Show HN in 2018 [1]. Today we&#x27;re a self-funded, profitable team of four building privacy-first analytics.<p>Privacy is why we run our own bare-metal servers instead of the cloud. We&#x27;re preparing for a LOT more traffic, and you&#x27;ll own the infrastructure and its reliability. We have good documentation. First project: leading the infra side of our Elasticsearch to ClickHouse migration, with Alex, our developer.<p>Stack: Ansible, OpenTofu, Docker Compose, Grafana, GitHub Actions, TypeScript. Clear async communication matters more than knowing every tool.<p>You can apply from your terminal:<p><pre><code>  curl https:&#x2F;&#x2F;www.simpleanalytics.com&#x2F;jobs&#x2F;devops.md\n</code></pre>\n[1] <a href=\"https:&#x2F;&#x2F;news.ycombinator.com&#x2F;item?id=18024277\">https:&#x2F;&#x2F;news.ycombinator.com&#x2F;item?id=18024277</a>",
+      "title": null,
+      "type": "comment",
+      "url": null
+    },
+    {
+      "author": "camperegrine",
+      "children": [],
+      "created_at": "2026-11-02T16:37:52.000Z",
+      "created_at_i": 1793637472,
+      "id": 50339454,
+      "options": [],
+      "parent_id": 50338728,
+      "points": null,
+      "story_id": 50338728,
+      "text": "Backed by Sequoia Capital, Peregrine is the operational AI platform powering decision making and operations SF &#x2F; NYC &#x2F; DC | In-office 4 days | $175,000 - $300,000<p>Staff SWE, Platform (SF) <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;h4368vl55us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;h4368vl55us</a><p>Staff SWE, Product Security (SF&#x2F;NYC) <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;b2kbmt3j5us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;b2kbmt3j5us</a><p>Staff &amp; Sr SWE (SF, NYC, DC)  <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;6jhp864a5us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;6jhp864a5us</a> &#x2F;&#x2F; <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;gwf63pot5us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;gwf63pot5us</a><p>Senior SWE, Foundations (SF&#x2F;NYC) <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;mn995net5us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;mn995net5us</a><p>Sr SWE, Data Infrastructure (SF&#x2F;NYC&#x2F;DC) <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;bq138yn05us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;bq138yn05us</a><p>Senior SWE, Federal Platform (DC) <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;pma2hbgx5us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;pma2hbgx5us</a><p>Sr SWE, Traffic (SF) <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;tdpez89u5us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;tdpez89u5us</a><p>Staff Product Designer (SF &#x2F;NYC) <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;ydegg9tl5us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;ydegg9tl5us</a><p>Product Operations Manager (SF) <a href=\"https:&#x2F;&#x2F;grnh.se&#x2F;0lopbszc5us\" rel=\"nofollow\">https:&#x2F;&#x2F;grnh.se&#x2F;0lopbszc5us</a>",
+      "title": null,
+      "type": "comment",
+      "url": null
+    },
+    {
+      "author": "JeremyTheo",
+      "children": [],
+      "created_at": "2026-11-02T17:04:21.000Z",
+      "created_at_i": 1793639061,
+      "id": 50339895,
+      "options": [],
+      "parent_id": 50338728,
+      "points": null,
+      "story_id": 50338728,
+      "text": "Cologne, Germany | UMH | Product Engineer | Full-time | 70k - 100k EUR | ONSITE (part remote)<p>Hi, Alex and Jeremy here from UMH.<p>8 years ago, Jeremy was absolutely frustrated with the status quo of data infrastructure in manufacturing. Companies paid millions per year for &quot;shitty 90s software&quot; and are still doing that today, when there is much better software out there for open-source. So we decided that we can do this better, first founded a System Integrator, realized most of the tasks in setting up and maintaining a data infrastructure can be standardized, and decided to found the currently VC-backed UMH, which is built on open source software and is open source itself.<p>What we&#x27;re actually building: We build and scale a real-time data platform that runs hundreds of Benthos pipelines inside a single Docker container (UMH Core), processing millions of industrial messages that control actual production processes.<p>Plus a local-first user interface (Management Console) where both non-technical factory workers and power-users&#x2F;developers can work together. And yes, we care about UI in enterprise&#x2F;industrial software.<p><a href=\"https:&#x2F;&#x2F;www.umh.app&#x2F;careers&#x2F;product-engineer-f-m-d-70-100k-eur-cologne\" rel=\"nofollow\">https:&#x2F;&#x2F;www.umh.app&#x2F;careers&#x2F;product-engineer-f-m-d-70-100k-e...</a>",
+      "title": null,
+      "type": "comment",
+      "url": null
+    },
+    {
+      "author": null,
+      "children": [],
+      "created_at": "2026-11-02T18:00:00.000Z",
+      "created_at_i": 1793642400,
+      "id": 50399999,
+      "options": [],
+      "parent_id": 50338728,
+      "points": null,
+      "story_id": 50338728,
+      "text": null,
+      "title": null,
+      "type": "comment",
+      "url": null
+    }
+  ],
+  "created_at": "2026-11-02T16:01:37.000Z",
+  "created_at_i": 1793635297,
+  "id": 50338728,
+  "options": [],
+  "parent_id": null,
+  "points": 187,
+  "story_id": 50338728,
+  "text": "Please state the location and include REMOTE for remote work, REMOTE (US)\nor similar if the country is restricted, and ONSITE when remote work is <i>not</i> an option.<p>Please only post if you personally are part of the hiring company—no\nrecruiting firms or job boards. One post per company. If it isn&#x27;t a household name,\nexplain what your company does.<p>Please only post if you are actively filling a position and are committed\nto replying to applicants.<p>Commenters: please don&#x27;t reply to job posts to complain about\nsomething. It&#x27;s off topic here.<p>Readers: please only email if you are personally interested in the job.<p>Searchers: try <a href=\"https:&#x2F;&#x2F;gethnjobs.com&#x2F;\" rel=\"nofollow\">https:&#x2F;&#x2F;gethnjobs.com&#x2F;</a>, <a href=\"https:&#x2F;&#x2F;hnwork.app\" rel=\"nofollow\">https:&#x2F;&#x2F;hnwork.app</a>, \n<a href=\"https:&#x2F;&#x2F;dheerajck.github.io&#x2F;hnwhoishiring&#x2F;\" rel=\"nofollow\">https:&#x2F;&#x2F;dheerajck.github.io&#x2F;hnwhoishiring&#x2F;</a>, <a href=\"http:&#x2F;&#x2F;nchelluri.github.io&#x2F;hnjobs&#x2F;\" rel=\"nofollow\">http:&#x2F;&#x2F;nchelluri.github.io&#x2F;hnjobs&#x2F;</a>,\n<a href=\"https:&#x2F;&#x2F;hnjobs.emilburzo.com\" rel=\"nofollow\">https:&#x2F;&#x2F;hnjobs.emilburzo.com</a>.<p>Don&#x27;t miss this other fine thread: <i>Who wants to be hired?</i> <a href=\"https:&#x2F;&#x2F;news.ycombinator.com&#x2F;item?id=50338726\">https:&#x2F;&#x2F;news.ycombinator.com&#x2F;item?id=50338726</a>",
+  "title": "Ask HN: Who is hiring? (November 2026)",
+  "type": "story",
+  "url": null
+}

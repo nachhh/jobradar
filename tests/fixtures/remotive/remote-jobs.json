@@ -1,0 +1,50 @@
+{
+  "00-warning": "This fixture is hand-written from Remotive's API documentation, not recorded.",
+  "0-legal-notice": "Remotive API Legal Notice: credit Remotive and link back to the job URL.",
+  "job-count": 3,
+  "total-job-count": 3,
+  "jobs": [
+    {
+      "id": 2084113,
+      "url": "https://remotive.com/remote-jobs/software-dev/senior-data-engineer-2084113",
+      "title": "Senior Data Engineer",
+      "company_name": "Acme Analytics",
+      "company_logo": "https://remotive.com/job/2084113/logo",
+      "category": "Software Development",
+      "tags": ["python", "spark", "airflow", "aws"],
+      "job_type": "full_time",
+      "publication_date": "2026-10-30T10:15:22",
+      "candidate_required_location": "Americas",
+      "salary": "$110k - $140k",
+      "description": "<p>We are looking for a <strong>Senior Data Engineer</strong> to build our batch and streaming pipelines.</p><ul><li>5+ years with Python and SQL</li><li>Experience with Airflow</li></ul>"
+    },
+    {
+      "id": 2084250,
+      "url": "https://remotive.com/remote-jobs/ai-ml/ml-engineer-llm-platform-2084250",
+      "title": "Machine Learning Engineer, LLM Platform",
+      "company_name": "Nimbus Labs Inc.",
+      "company_logo": "https://remotive.com/job/2084250/logo",
+      "category": "AI / ML",
+      "tags": ["llm", "python", "rag"],
+      "job_type": "contract",
+      "publication_date": "2026-10-31T08:00:00",
+      "candidate_required_location": "Worldwide",
+      "salary": "",
+      "description": "<p>Join the team building our retrieval-augmented generation platform.</p>"
+    },
+    {
+      "id": 2084301,
+      "url": "https://remotive.com/remote-jobs/data/analytics-engineer-2084301",
+      "title": "Analytics Engineer",
+      "company_name": "Datafy S.A.",
+      "company_logo": "https://remotive.com/job/2084301/logo",
+      "category": "Data Analysis",
+      "tags": [],
+      "job_type": "full_time",
+      "publication_date": "2026-11-01T14:30:00",
+      "candidate_required_location": "LATAM",
+      "salary": "USD 4,000 - 5,500 / month",
+      "description": "<p>dbt, BigQuery and Looker. Spanish and English.</p>"
+    }
+  ]
+}

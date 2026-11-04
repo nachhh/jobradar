@@ -1,0 +1,140 @@
+{
+  "hits": [
+    {
+      "_tags": [
+        "story",
+        "author_whoishiring",
+        "story_50338728",
+        "ask_hn",
+        "front_page"
+      ],
+      "author": "whoishiring",
+      "children": [
+        50348055,
+        50348022,
+        50347792
+      ],
+      "created_at": "2026-11-02T16:01:37Z",
+      "created_at_i": 1793635297,
+      "num_comments": 153,
+      "objectID": "50338728",
+      "points": 187,
+      "story_id": 50338728,
+      "title": "Ask HN: Who is hiring? (November 2026)",
+      "updated_at": "2026-11-03T04:29:14Z"
+    },
+    {
+      "_tags": [
+        "story",
+        "author_whoishiring",
+        "story_50338726",
+        "ask_hn"
+      ],
+      "author": "whoishiring",
+      "children": [
+        50348079,
+        50348064,
+        50348056
+      ],
+      "created_at": "2026-11-02T16:01:37Z",
+      "created_at_i": 1793635297,
+      "num_comments": 300,
+      "objectID": "50338726",
+      "points": 38,
+      "story_id": 50338726,
+      "title": "Ask HN: Who wants to be hired? (November 2026)",
+      "updated_at": "2026-11-03T04:29:59Z"
+    },
+    {
+      "_tags": [
+        "story",
+        "author_whoishiring",
+        "story_49922569",
+        "ask_hn"
+      ],
+      "author": "whoishiring",
+      "children": [
+        49926618,
+        49922584,
+        49925643
+      ],
+      "created_at": "2026-10-01T15:02:07Z",
+      "created_at_i": 1790866927,
+      "num_comments": 388,
+      "objectID": "49922569",
+      "points": 277,
+      "story_id": 49922569,
+      "title": "Ask HN: Who is hiring? (October 2026)",
+      "updated_at": "2026-11-03T03:11:45Z"
+    },
+    {
+      "_tags": [
+        "story",
+        "author_whoishiring",
+        "story_49922568",
+        "ask_hn"
+      ],
+      "author": "whoishiring",
+      "children": [
+        49925150,
+        49926308,
+        49923956
+      ],
+      "created_at": "2026-10-01T15:02:07Z",
+      "created_at_i": 1790866927,
+      "num_comments": 691,
+      "objectID": "49922568",
+      "points": 136,
+      "story_id": 49922568,
+      "title": "Ask HN: Who wants to be hired? (October 2026)",
+      "updated_at": "2026-11-03T02:47:59Z"
+    },
+    {
+      "_tags": [
+        "story",
+        "author_whoishiring",
+        "story_49522897",
+        "ask_hn"
+      ],
+      "author": "whoishiring",
+      "children": [
+        49523712,
+        49523950,
+        49524580
+      ],
+      "created_at": "2026-09-01T15:01:17Z",
+      "created_at_i": 1788274877,
+      "num_comments": 389,
+      "objectID": "49522897",
+      "points": 254,
+      "story_id": 49522897,
+      "title": "Ask HN: Who is hiring? (September 2026)",
+      "updated_at": "2026-11-03T03:09:29Z"
+    },
+    {
+      "_tags": [
+        "story",
+        "author_whoishiring",
+        "story_49522896",
+        "ask_hn"
+      ],
+      "author": "whoishiring",
+      "children": [
+        49522899,
+        49522948,
+        49525586
+      ],
+      "created_at": "2026-09-01T15:01:17Z",
+      "created_at_i": 1788274877,
+      "num_comments": 542,
+      "objectID": "49522896",
+      "points": 114,
+      "story_id": 49522896,
+      "title": "Ask HN: Who wants to be hired? (September 2026)",
+      "updated_at": "2026-11-02T22:28:59Z"
+    }
+  ],
+  "nbHits": 6,
+  "page": 0,
+  "hitsPerPage": 10
+}

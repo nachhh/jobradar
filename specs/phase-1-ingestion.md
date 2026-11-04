@@ -12,9 +12,9 @@ Verified on 2026-11-02. All three return a stable ID per posting.
 
 | Source | Endpoint | Source ID | Notes |
 |---|---|---|---|
-| GetOnBoard | `GET /api/v0/categories/{category}/jobs?page=…` | `id` (a slug, e.g. `data-engineer-acme-remote-9cff`) | LATAM. Paginated. Whole categories, not keyword searches: `programming`, `data-science-analytics`, `machine-learning-ai`, `sysadmin-devops-qa`. Structured `seniority`, `min_salary`, `max_salary`, `modality`. HTML in description fields. |
-| Remotive | `GET /api/remote-jobs?category=…` | `id` (integer) | Terms: link back to the posting URL and credit Remotive; **at most 4 requests a day**; jobs are delayed 24 h. |
-| Hacker News | Algolia: the last two "Ask HN: Who is hiring?" stories by `whoishiring`, then their top-level comments | comment `objectID` (integer) | Free text, usually `Company \| Role \| Location \| REMOTE \| …` on the first line. Company and title can be missing; Phase 2's LLM extraction fills the gaps. Deleted comments are skipped. |
+| GetOnBoard | `GET /api/v0/categories/{category}/jobs?page=…&per_page=100&expand[]=company&expand[]=seniority&expand[]=tags&expand[]=modality` (`expand[]` inlines related objects, which otherwise come back as bare IDs) | `id` (a slug, e.g. `data-engineer-acme-remote-9cff`) | LATAM. Paginated. Whole categories, not keyword searches: `programming`, `data-science-analytics`, `machine-learning-ai`, `sysadmin-devops-qa`. Structured `seniority`, `min_salary`, `max_salary`, `modality`. HTML in description fields. |
+| Remotive | `GET /api/remote-jobs` (all categories in **one** request, no paging) | `id` (integer) | Terms: link back to the posting URL and credit Remotive; **at most 4 requests a day**; jobs are delayed 24 h. Test fixtures are hand-written from the docs, never recorded with a live request. |
+| Hacker News | Algolia: `search_by_date?tags=story,author_whoishiring` for the last two "Ask HN: Who is hiring?" stories, then `items/{story_id}` for each, whose top-level comments are the postings (replies dropped) | comment `objectID` (integer) | Free text, usually `Company \| Role \| Location \| REMOTE \| …` on the first line. Company and title can be missing; Phase 2's LLM extraction fills the gaps. Deleted comments are skipped. |
 
 Ingestion is deliberately independent of any resume: it builds one broad corpus, and matching against a resume happens later (Phases 2 and 3), so the same corpus serves any profile.
 
@@ -38,9 +38,10 @@ rejected_postings      records that failed validation, with the reason (quaranti
 - **`pipeline_runs`:** `run_id` (UUID), `pipeline` (`ingest`), `trigger` (`manual` or `scheduled`), `params` (JSONB: sources, queries), `git_sha`, `status` (`running`, `succeeded`, `partial`, `failed`), `started_at`, `finished_at`.
 - **`pipeline_run_sources`:** primary key `(run_id, source)`. `status`, `stage` reached (`extracted`, `transformed`), `started_at`, `finished_at`, counts (`fetched`, `inserted`, `updated`, `unchanged`, `rejected`), `error_type`, `error_message`. Run totals are not stored on `pipeline_runs`; they are a `SUM` over this table (no duplicated data).
 - **`raw_postings`:** `id`, `source`, `src_posting_id`, `payload` (JSONB, exactly as received), `payload_hash`, `first_run_id`, `first_fetched_at`, `last_run_id`, `last_fetched_at`. Unique on `(source, src_posting_id, payload_hash)`: an unchanged posting fetched again is not stored again, so the table holds one row per *version* of each posting. That history makes it possible to rebuild `postings` from raw at any time, for example after fixing a parser bug, without calling the APIs again.
+  - `payload_hash` ignores *volatile* fields that change without the posting changing (GetOnBoard's `applications_count` and the company's `response_time_in_days`); otherwise nearly every run would add a version. The stored payload still keeps them.
   - The payload columns never change. `last_run_id` and `last_fetched_at` are refreshed every time the API returns that version again: they record that the posting was *seen* in a run. Without them, an unchanged posting would leave no trace of the run, and the transform could not tell "unchanged and still listed" from "closed" (both add no new version).
 - **`postings`:** `id`, `source`, `src_posting_id` (unique together), `url`, `title`, `company`, `location_text`, `remote` (`remote`, `hybrid`, `onsite` or `unknown`), `seniority`, `salary_min`, `salary_max`, `salary_text`, `posted_at`, `description` (plain text, HTML stripped), `tags`, `content_hash`, `first_seen_at`, `last_seen_at`, `last_run_id`, `is_active`, `dedup_key`, `canonical_id` (nullable self-reference).
-- **Closed postings:** GetOnBoard and Remotive drop a posting from their API when it closes. After a successful extract of a source, its postings not seen in that run get `is_active = false`. HN has no closed signal, so HN postings become inactive when their thread is more than two months old.
+- **Closed postings:** GetOnBoard and Remotive drop a posting from their API when it closes. After a successful extract of a source, its postings not seen in that run get `is_active = false`. HN has no explicit closed signal, so an HN posting becomes inactive when **(a)** its comment is more than 45 days old (`created_at`), **or (b)** its thread was fetched successfully in this run and the comment was not in it (the comment was deleted, usually because the role was filled). Rule (b) applies only to threads fetched in the run: a comment whose thread has left the last-two window is out of range, not missing. A per-comment age gives every posting the same lifetime, while a thread-age or "not seen" rule would give 1 to 2 months depending on when in the month the comment was posted.
 - **`rejected_postings`:** `run_id`, `source`, `src_posting_id`, `payload`, `reason`.
 
 LLM call metrics (model, tokens, cost, latency) are not part of ingestion: they get their own `llm_calls` table in Phase 2, one row per call, linked to its run.
@@ -79,7 +80,8 @@ Two stages with a durable hand-off between them: what was fetched is committed t
 - **Fuzzy match** with `pg_trgm` trigram similarity, because company names vary across sources too:
   - **Blocking:** only pairs from different sources whose normalized companies share their first token are compared, which keeps comparisons few and avoids linking unrelated companies with similar titles.
   - **Rule:** company similarity ≥ 0.7 and title similarity ≥ 0.8. Thresholds are tuned on real data.
-- **Linking:** the oldest posting in a group becomes canonical, and the others get its `canonical_id`. Rows are never deleted or merged, so a wrong link can be undone. Search and the agent read canonical, active postings only.
+- **Linking:** the oldest posting in a group becomes canonical, and the others get its `canonical_id`. Rows are never deleted or merged, so a wrong link can be undone.
+- **Canonical is identity, fixed; the representative is chosen at read time.** The canonical never changes, even after it closes, so links stay stable. No source is the truth about whether a job is still open (each board only knows its own copy), so a group counts as open while **any** member is active. A view, `current_postings`, returns one row per group: the canonical if it is active, otherwise the oldest active member (`DISTINCT ON (COALESCE(canonical_id, id))`). Search and the agent read that view.
 - Postings without a company (some HN comments) are not linked in Phase 1. Phase 2's LLM extraction fills in the company, and embeddings can add a semantic signal to matching later.
 
 ## CLI
@@ -119,5 +121,8 @@ LLM extraction and embeddings (Phase 2), search, a UI, any paid source, LinkedIn
 - Raw storage: one row per version of a posting (2026-11-02).
 - Raw rows carry `last_run_id`/`last_fetched_at`, refreshed on every fetch, so each run records which postings it saw; preferred over a separate append-only sightings table for simplicity (2026-11-03).
 - HN: the last two monthly threads (2026-11-02).
+- HN inactivity: comment older than 45 days, or deleted from a thread fetched in the run (2026-11-04).
 - GetOnBoard: whole categories instead of keyword searches (2026-11-02).
+- Cross-source groups: fixed canonical, representative chosen at read time by the `current_postings` view (2026-11-03).
+- Remotive: one request per run for all categories; fixtures hand-written to spare the daily limit (2026-11-03).
 - **Open:** whether to add an orchestrator, and which one (see the project overview).

@@ -1,0 +1,360 @@
+{
+  "data": [
+    {
+      "id": "ai-sales-specialist-agendapro-santiago",
+      "type": "job",
+      "attributes": {
+        "title": "AI Sales Specialist",
+        "description_headline": "Requerimientos: ",
+        "description": "<p>• Formación en Ingeniería Comercial, Administración de Empresas o carrera afín.<br>• Hasta 2 años de experiencia.<br>• Idealmente con experiencia en ventas B2B y/o SaaS.<br>• Muy buenas habilidades comerciales y de comunicación.<br>• Persona autónoma, ejecutora, curiosa y con ganas de aprender rápido.<br>• Cómoda trabajando en un equipo joven, donde todavía hay mucho espacio para proponer y construir.<br>• Disponibilidad para trabajar 100% presencial.</p>",
+        "projects": "<p>🚀 Buscamos <strong>AI Sales Specialist</strong> para sumarse a AgendaPro.</p><p><strong>AgendaPro</strong> es la plataforma líder en LATAM para gestionar agenda, pagos y crecimiento en negocios de belleza, salud y bienestar, con más de 12 años creciendo y respaldo de Y Combinator y una Serie B de US$35M. Hace 4 meses nació un nuevo equipo enfocado en llevar al mercado un producto de IA agéntica para la industria de belleza. Hoy estamos creciendo y queremos sumar a dos personas a nuestro equipo comercial: gente con energía comercial, pila y ganas de aprender, que quiera ser parte de una etapa temprana donde todavía hay muchísimo por construir, probar y escalar.</p><p>📍 <strong>Modalidad 100% presencial</strong> – oficina a pasos del Metro Los Leones, Santiago.</p>",
+        "functions_headline": "🚀 Qué harás / Responsabilidades:",
+        "functions": "<p><strong>Tu desafío:</strong> Vas a ser responsable del ciclo comercial completo: desde generar la primera conversación con un potencial cliente hasta lograr que se convierta en cliente de AgendaPro. Buscarás y contactarás nuevas oportunidades por teléfono y WhatsApp, entenderás sus necesidades, harás demos del producto y darás seguimiento a cada oportunidad hasta cerrar la venta.</p><p>Pero tu rol no termina en vender: cada conversación con un cliente nos ayuda a entender mejor qué necesita el mercado. Vas a trabajar directamente con Producto e Ingeniería, compartiendo insights que serán parte de las decisiones sobre qué construimos y cómo seguimos evolucionando el producto. Además, al ser un equipo que lleva solo 4 meses, vas a tener espacio para probar nuevas formas de vender, aprender qué funciona y ayudarnos a construir nuestro playbook comercial.</p><p>• Gestionar el ciclo comercial completo: prospección → demo → seguimiento → cierre.<br>• Buscar y contactar nuevas oportunidades por teléfono y WhatsApp.<br>• Entender las necesidades del cliente y traducirlas en una demo relevante.<br>• Hacer seguimiento de cada oportunidad hasta cerrar la venta.<br>• Compartir insights de mercado con Producto e Ingeniería.<br>• Proponer y probar nuevas formas de vender, aportando al playbook comercial del equipo.</p>",
+        "benefits_headline": "🔥 Qué ofrecemos:",
+        "benefits": "<ul><li><strong>Impacto real</strong> en un producto usado por miles de negocios de la región.</li><li><strong>Equipo chico, rápido y sin capas innecesarias:</strong> espacio para construir, proponer y equivocarte rápido.</li><li><strong>15 días hábiles de vacaciones</strong> al año + 5 días adicionales de descanso, día libre por tu cumpleaños y días por matrimonio / postnatal parental.</li><li><strong>DODO:</strong> salud mental a bajo costo y otras especialidades.</li><li><strong>Presupuesto para capacitaciones</strong> — acá se crece de verdad.</li><li><strong>Seguro complementario</strong> de salud.</li><li>Desayuno, almuerzo y snacks en la oficina.</li></ul>",
+        "desirable_headline": "",
+        "desirable": "",
+        "remote": false,
+        "remote_modality": "no_remote",
+        "remote_zone": null,
+        "countries": [
+          "Chile"
+        ],
+        "lang": "lang_not_specified",
+        "category_name": "Machine Learning & AI",
+        "perks": [
+          "flexible_hours",
+          "health_coverage",
+          "computer_provided",
+          "informal_dresscode",
+          "vacation_over_legal",
+          "beverages_and_snacks"
+        ],
+        "min_salary": null,
+        "max_salary": null,
+        "published_at": 1785210840,
+        "response_time_in_days": {
+          "min": null,
+          "max": null
+        },
+        "applications_count": 41,
+        "location_regions": {
+          "data": []
+        },
+        "location_tenants": {
+          "data": []
+        },
+        "location_cities": {
+          "data": [
+            {
+              "id": 1,
+              "type": "location_city"
+            }
+          ]
+        },
+        "modality": {
+          "data": {
+            "id": "1",
+            "type": "modality",
+            "attributes": {
+              "name": "Full time",
+              "locale_key": "full_time"
+            }
+          }
+        },
+        "seniority": {
+          "data": {
+            "id": "2",
+            "type": "seniority",
+            "attributes": {
+              "name": "Junior",
+              "locale_key": "junior"
+            }
+          }
+        },
+        "tags": {
+          "data": [
+            {
+              "id": "autonomy",
+              "type": "tag",
+              "attributes": {
+                "name": "Autonomy",
+                "keywords": null
+              }
+            },
+            {
+              "id": "ventas",
+              "type": "tag",
+              "attributes": {
+                "name": "Sales",
+                "keywords": "Ventas, BDR, Sale Techniques, Sales Administration, Sales Analysis, Sales & Distribution, Salesforce Sales, Sales Cloud, Salesforce Sales Cloud, Sales Calls, Sales, sales representative, business development, ventas, Ventas B2B, Ventas Consultivas"
+              }
+            },
+            {
+              "id": "b2b",
+              "type": "tag",
+              "attributes": {
+                "name": "B2B",
+                "keywords": null
+              }
+            },
+            {
+              "id": "saas",
+              "type": "tag",
+              "attributes": {
+                "name": "SaaS",
+                "keywords": "SaaS Applications, SaaS Architecture, SaaS Automation, SaaS B2B Sales, SaaS B2B Prospecting, SaaS B2C, SaaS Cloud Services, SaaS Billing, SaaS Business Models"
+              }
+            },
+            {
+              "id": "prospecting",
+              "type": "tag",
+              "attributes": {
+                "name": "Prospecting",
+                "keywords": null
+              }
+            },
+            {
+              "id": "product-demonstration",
+              "type": "tag",
+              "attributes": {
+                "name": "Product Demonstration",
+                "keywords": "Product Demonstrations, Product Demos, Process Demonstrations"
+              }
+            },
+            {
+              "id": "customer-needs-analysis",
+              "type": "tag",
+              "attributes": {
+                "name": "Customer Needs Analysis",
+                "keywords": null
+              }
+            },
+            {
+              "id": "communication",
+              "type": "tag",
+              "attributes": {
+                "name": "Communication",
+                "keywords": "Communication Skills, Communication Analysis, Comunicación, Comunicaciones, Communication Channels, Communication Planning, Communication Plans, Communication Architecture, Communication Audiovisual, Comunicación empresarial"
+              }
+            }
+          ]
+        },
+        "company": {
+          "data": {
+            "id": "agendapro",
+            "type": "company",
+            "attributes": {
+              "name": "AgendaPro",
+              "description": "Ayudamos a dueños de negocios a cobrar a sus clientes online y aceptar reservas fácilmente ",
+              "long_description": "<p>AgendaPro permite a dueños y administradores de Centros de Estética, Salud, Belleza y Deporte cobrar a sus clientes online, y aceptar reservas fácilmente. Somos una de las Startup tecnológicas de Y Combinator con mayor crecimiento en Latinoamérica: tenemos más de 15.000 clientes en más de 17 países dentro de los cuales está: Argentina, Chile, Colombia, México, Perú, y próximamente Brasil. </p><p>Nuestra misión es crear un “software todo-en-uno” simple e intuitivo, que permita a Centros de Salud, Belleza, y Bienestar conectar su negocio con el mundo digital, para que puedan enfocarse en lo más importante: sus clientes y hacer crecer su negocio. Esto a través de herramientas de marketing, gestión, pagos, y fidelización de clientes. </p><p>En AgendaPro resolvemos problemas desde la perspectiva de nuestros clientes a través de la tecnología. Las soluciones a estos problemas las construimos juntos en un entorno colaborativo, con equipos multidisciplinarios, 100% horizontales, donde se valora la voz de las ideas sobre todo lo demás. </p>",
+              "projects": "<div><strong>AgendaPro</strong> simplifica el día a día a dueños y administradores de Centros de Salud, Belleza y Deporte a través de un software de gestión todo-en-uno 💻 y soluciones POS 💰 (punto de ventas), el cual les permite enfocarse en lo más importante: sus clientes y hacer crecer su negocio.</div><div>Actualmente, tenemos más de 16.000 clientes en todo LATAM y Europa y somos parte de <strong>Y Combinator</strong>, una de las aceleradoras con más prestigio a nivel mundial. Reconocida por apoyar a empresas como Rappi, Stripe, Airbnb y Dropbox entre otras. Así que llegarás en el momento perfecto para colaborar con nuestras metas de crecimiento 🚀.</div><div>¿Preparado para crecer y enfrentar grandes desafíos con nosotros? 😎</div>",
+              "benefits": "<ul><li>El puesto es presencial en Santiago, Chile, contando con una oficina cómoda muy cercana al metro y con estacionamientos de bici</li><li>Incluimos stock options dependiendo de tu performance</li><li>Vacaciones sobre lo legal</li></ul>",
+              "web": "https://www.agendapro.com",
+              "twitter": "agendapro_cl",
+              "github": "",
+              "facebook": "agendapro",
+              "angellist": "",
+              "country": "US",
+              "response_time_in_days": {
+                "min": 1,
+                "max": 13
+              },
+              "logo": "https://getonbrd-prod.s3.amazonaws.com/uploads/users/logo/2696/Nuevo_logo_AgendaPro_cuadrado.png"
+            }
+          }
+        }
+      },
+      "links": {
+        "public_url": "https://www.getonbrd.com/jobs/ai-sales-specialist-agendapro-santiago"
+      }
+    },
+    {
+      "id": "ia-developer-improving-remote",
+      "type": "job",
+      "attributes": {
+        "title": "IA Developer",
+        "description_headline": "Requerimientos del cargo",
+        "description": "<ul><li>Experiencia comprobable desarrollando soluciones de IA o aprendizaje automático en producción.</li><li>Dominio de Python y de al menos un framework de IA generativa (por ejemplo, LangChain, LlamaIndex o Semantic Kernel).</li><li>Experiencia con servicios de IA en la nube, preferentemente en Microsoft Azure, para desplegar y operar soluciones de IA generativa y de aprendizaje automático.</li><li>Conocimiento sólido de arquitecturas RAG, embeddings, bases vectoriales y evaluación de modelos.</li><li>Capacidad para recomendar tecnologías con criterio, explicando ventajas, desventajas y costos.</li><li>Nivel de inglés intermedio alto o avanzado.</li></ul>",
+        "projects": "<p>En Improving South America, brindamos servicios de TI para transformar la percepción del profesional de TI. Nos enfocamos en consultoría de TI, desarrollo de software y formación ágil. </p><p>La empresa promueve una cultura de trabajo excepcional basada en el trabajo en equipo, la excelencia y la diversión, con enfoque en crecimiento personal y recompensas compartidas. Actualmente buscamos un desarrollador(a) de IA para sumarse a proyectos de inteligencia artificial de nuestro equipo de protección de datos. Además de construir, esta persona será un referente técnico que diagnostica bloqueos, recomienda herramientas y tecnologías, y lleva los proyectos de prueba de concepto a producción de forma segura y medible.</p>",
+        "functions_headline": "Funciones del cargo",
+        "functions": "<ul><li>Diagnosticar el estado de proyectos de IA estancados, identificando causas técnicas, de datos, de arquitectura o de proceso.</li><li>Recomendar herramientas, modelos y tecnologías para desbloquear cada proyecto, documentando el razonamiento y los compromisos de cada opción.</li><li>Diseñar e implementar soluciones de IA generativa, incluyendo RAG, agentes, flujos de procesamiento de lenguaje natural y modelos predictivos.</li><li>Integrar soluciones de IA con sistemas empresariales existentes en Microsoft 365, Azure, Teams, SharePoint y Exchange Online.</li><li>Definir y ejecutar pruebas de evaluación de modelos (calidad, sesgo, latencia y costo) antes de cada entrega.</li><li>Establecer prácticas de MLOps o LLMOps para versionado, monitoreo y despliegue continuo.</li><li>Documentar arquitecturas, decisiones técnicas y procedimientos de operación.</li><li>Colaborar con equipos de negocio, seguridad y cumplimiento para asegurar que las soluciones cumplan con nuestra línea base de SOC 2 Type II y con los lineamientos de datos de cada cliente.</li></ul>",
+        "benefits_headline": "Condiciones",
+        "benefits": "<ul><li>Contrato a largo plazo.</li><li>100% Remoto.</li><li>Vacaciones y PTOs</li><li>Posibilidad de recibir 2 bonos al año.</li><li>2 revisiones salariales al año.</li><li>Clases de inglés.</li><li>Equipamiento Apple.</li><li>Plataforma de cursos en linea</li><li>Budget para compra de libros.</li><li>Budget para compra de materiales de trabajo</li><li>mucho mas..</li></ul>",
+        "desirable_headline": "",
+        "desirable": "",
+        "remote": true,
+        "remote_modality": "remote_local",
+        "remote_zone": null,
+        "countries": [
+          "Remote"
+        ],
+        "lang": "lang_not_specified",
+        "category_name": "Machine Learning & AI",
+        "perks": [],
+        "min_salary": null,
+        "max_salary": null,
+        "published_at": 1793650308,
+        "response_time_in_days": {
+          "min": null,
+          "max": null
+        },
+        "applications_count": 19,
+        "location_regions": {
+          "data": []
+        },
+        "location_tenants": {
+          "data": [
+            {
+              "id": 3,
+              "type": "location_tenant"
+            },
+            {
+              "id": 2,
+              "type": "location_tenant"
+            },
+            {
+              "id": 6,
+              "type": "location_tenant"
+            },
+            {
+              "id": 1,
+              "type": "location_tenant"
+            }
+          ]
+        },
+        "location_cities": {
+          "data": []
+        },
+        "modality": {
+          "data": {
+            "id": "1",
+            "type": "modality",
+            "attributes": {
+              "name": "Full time",
+              "locale_key": "full_time"
+            }
+          }
+        },
+        "seniority": {
+          "data": {
+            "id": "4",
+            "type": "seniority",
+            "attributes": {
+              "name": "Senior",
+              "locale_key": "senior"
+            }
+          }
+        },
+        "tags": {
+          "data": [
+            {
+              "id": "python",
+              "type": "tag",
+              "attributes": {
+                "name": "Python",
+                "keywords": "Django, Jython, Cheetah, Flask, Jinja2, bottle, itty, NumPy, SciPy, phyton, pyton, Pytohn, Python 2.7, Python 2, Python 3.10, Python 3, Pyhton, Python Automation, Python Script, Python Programming, Python Scripting, Python Testing"
+              }
+            },
+            {
+              "id": "generative-ai",
+              "type": "tag",
+              "attributes": {
+                "name": "Generative AI",
+                "keywords": "Gen AI, Generative Algorithms, Generative Models"
+              }
+            },
+            {
+              "id": "langchain",
+              "type": "tag",
+              "attributes": {
+                "name": "LangChain",
+                "keywords": null
+              }
+            },
+            {
+              "id": "azure",
+              "type": "tag",
+              "attributes": {
+                "name": "Azure",
+                "keywords": "Azure Administration, Windows CE, Windows Azure, Azure Cloud, Cloud Azure, Microsoft Azure Services, Microsoft Azure Administrator, Microsoft Azure Certification, Microsoft Azure CI/CD, Microsoft Azure DevOps, Microsoft Azure"
+              }
+            },
+            {
+              "id": "rag",
+              "type": "tag",
+              "attributes": {
+                "name": "RAG",
+                "keywords": "RAGs, RAG Frameworks, RAG Systems"
+              }
+            },
+            {
+              "id": "embeddings",
+              "type": "tag",
+              "attributes": {
+                "name": "Embeddings",
+                "keywords": null
+              }
+            },
+            {
+              "id": "vector-databases",
+              "type": "tag",
+              "attributes": {
+                "name": "Vector Databases",
+                "keywords": null
+              }
+            },
+            {
+              "id": "model-evaluation",
+              "type": "tag",
+              "attributes": {
+                "name": "Model Evaluation",
+                "keywords": "Model Evaluators, Model Monitoring, Model Ops"
+              }
+            },
+            {
+              "id": "ml-ops",
+              "type": "tag",
+              "attributes": {
+                "name": "ML Ops",
+                "keywords": "ML-Ops, MLOps"
+              }
+            }
+          ]
+        },
+        "company": {
+          "data": {
+            "id": "improving",
+            "type": "company",
+            "attributes": {
+              "name": "Improving",
+              "description": "Improving is an IT services firm focused on AI, Data, and Applications. We modernize legacy systems, build cloud-native platforms, and deliver future-ready solutions through collaborative, long-term partnerships that drive measurable outcomes.",
+              "long_description": "<p>Improving is dedicated to creating and fostering a great work culture that exemplifies teamwork, excellence, and fun. We believe this inspires and motivates everyone while building lifelong relationships. Improving has long supported the Conscious Capitalism movement. We work to serve the interests of all our stakeholders, building trust along the way.</p><p>Providing an exceptional work culture is at the forefront of everything we do. By creating an environment that fosters joy, we believe our people will feel inspired and motivated, while also building strong personal and professional relationships. At Improving, our optimistic approach to open communication, personal growth, and shared rewards has led to our sustainable success. At the heart of Improving is our set of core values.</p>",
+              "projects": "<div>En Improving South America, brindamos servicios de TI para transformar la percepción del profesional de TI. Nos enfocamos en consultoría de TI, desarrollo de software y formación ágil.&nbsp;</div><div>La empresa promueve una cultura de trabajo excepcional basada en el trabajo en equipo, la excelencia y la diversión, con enfoque en crecimiento personal y recompensas compartidas. Al integrarse, el/la candidato/a formará parte de una comunidad que prioriza la comunicación abierta y relaciones laborales sólidas a largo plazo, respaldada por una estructura de desarrollo profesional y aprendizaje continuo.</div>",
+              "benefits": "<ul><li>Contrato a largo plazo.</li><li>100% Remoto.</li><li>Vacaciones y PTOs</li><li>Posibilidad de recibir 2 bonos al año.</li><li>2 revisiones salariales al año.</li><li>Clases de inglés.</li><li>Equipamiento Apple.</li><li>Plataforma de cursos en linea</li><li>Budget para compra de libros.</li><li>Budget para compra de materiales de trabajo</li><li>mucho mas..</li></ul>",
+              "web": "https://www.improving.com/",
+              "twitter": "ImprovingSAM",
+              "github": "improving",
+              "facebook": "improvingdallas",
+              "angellist": "",
+              "country": "US",
+              "response_time_in_days": {
+                "min": 12,
+                "max": 26
+              },
+              "logo": "https://getonbrd-prod.s3.amazonaws.com/uploads/users/logo/4161/improving-splash-200px.png"
+            }
+          }
+        }
+      },
+      "links": {
+        "public_url": "https://www.getonbrd.com/jobs/ia-developer-improving-remote"
+      }
+    }
+  ],
+  "meta": {
+    "page": 2,
+    "per_page": 100,
+    "total_pages": 2
+  }
+}

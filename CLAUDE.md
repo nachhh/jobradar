@@ -19,6 +19,14 @@ JobRadar: ingestion, LLM enrichment, retrieval and a LangGraph agent over public
 5. **Free tiers first.** Ask before adding anything that costs money.
 6. New architectural decisions are written as an ADR in `docs/adr/`.
 
+## Learning workflow
+
+The owner is learning the AI/LLM stack through this project. Keep each of these brief and save them for important points, so the project doesn't stretch into weeks:
+
+- **Concepts:** each phase introduces its AI/LLM concepts and tools (what they are, why they're used here) and points to the files where they are implemented or configured.
+- **Quizzes:** from time to time, 4–5 questions in the chat (not in code) on the current phase's relevant code: what it does, how and why. The owner answers in the chat; check, correct, and move on.
+- **Design tasks:** occasionally, a couple of design problems. The owner proposes an approach; say whether it's good to go or recommend alternatives.
+
 ## Git workflow
 
 - **One branch per phase**, cut from `main`: `jobradar-<gituser>-p<N>-<brief-desc>`, where `<gituser>` is the GitHub handle. Example: `jobradar-nachhh-p1-postings-ingestion`.
