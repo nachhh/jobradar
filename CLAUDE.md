@@ -32,7 +32,8 @@ The owner is learning the AI/LLM stack through this project. Keep each of these 
 - **One branch per phase**, cut from `main`: `jobradar-<gituser>-p<N>-<brief-desc>`, where `<gituser>` is the GitHub handle. Example: `jobradar-nachhh-p1-postings-ingestion`.
 - **Steps:** each phase spec has a "Steps" section: the order the phase is built in, with a status per step. Keep it up to date. Steps (building the code) are not the pipeline's stages (what a run does).
 - **Commit messages:** `[jobradar][p<N>][s<X>] <what was done>`, where `s<X>` is the step. A step can take several commits (fixes, follow-ups). Example: `[jobradar][p1][s4] Add ingest pipeline, run ledger and CLI`.
-- Commits and pushes still happen only when the owner asks (rule 3).
+- **No pull requests.** The owner and Claude are the only contributors and review each other's work directly (the owner in their clone). When both agree a phase branch is ready, it is merged into `main` with `git merge --no-ff`, so the phase stays visible as one merge commit in the history, and `main` is pushed.
+- Commits, merges and pushes still happen only when the owner asks (rule 3).
 
 ## Environment
 
