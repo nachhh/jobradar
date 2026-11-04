@@ -258,3 +258,21 @@ def test_runs_command_shows_the_ledger(clean_db: Engine, monkeypatch: pytest.Mon
     assert str(result.run_id) in output
     assert "getonboard succeeded transformed fetched    3  inserted    3" in output
     assert "HTTPStatusError: 503" in output
+
+
+# --- linking ----------------------------------------------------------------------------------
+
+
+def test_run_links_the_same_job_across_sources(clean_db: Engine) -> None:
+    extractors = fakes()
+    # Make one Remotive job the same as GetOnBoard's "Founding AI Engineer" at Sapling.
+    job = extractors[Source.REMOTIVE].payloads[0]
+    job["company_name"], job["title"] = "Sapling Inc.", "Founding AI Engineer"
+
+    ingest(clean_db, extractors)
+
+    with clean_db.connect() as conn:
+        linked = conn.execute(select(Posting.source).where(Posting.canonical_id.is_not(None))).scalars().all()
+        groups = conn.execute(text("SELECT count(*) FROM current_postings")).scalar_one()
+    assert linked == ["remotive"]  # GetOnBoard's copy was seen first (it ran first): canonical
+    assert groups == 8  # 9 postings, one job posted twice

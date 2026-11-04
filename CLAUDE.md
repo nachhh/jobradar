@@ -23,8 +23,8 @@ JobRadar: ingestion, LLM enrichment, retrieval and a LangGraph agent over public
 
 The owner is learning the AI/LLM stack through this project. Keep each of these brief and save them for important points, so the project doesn't stretch into weeks:
 
-- **Concepts:** each phase introduces its AI/LLM concepts and tools (what they are, why they're used here) and points to the files where they are implemented or configured.
-- **Quizzes:** from time to time, 4–5 questions in the chat (not in code) on the current phase's relevant code: what it does, how and why. The owner answers in the chat; check, correct, and move on.
+- **Concepts:** each phase introduces its AI/LLM concepts and tools (what they are, why they're used here) and points to the files where they are implemented or configured. AI/LLM concepts are new to the owner, so every introduction starts with a simple, plain-language explanation (ELI5) and only then goes technical, step by step. Never open with the technical version.
+- **Quizzes:** from time to time, 4–5 questions in the chat (not in code) on the current phase's relevant code: what it does, how and why. The owner answers in the chat; check, correct, and move on. Never quiz on an AI/LLM concept before it has been introduced as above.
 - **Design tasks:** occasionally, a couple of design problems. The owner proposes an approach; say whether it's good to go or recommend alternatives.
 
 ## Git workflow

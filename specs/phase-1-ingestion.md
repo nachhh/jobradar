@@ -4,16 +4,18 @@
 
 ## Goal
 
-Job postings from three public sources land in Postgres on every run, through raw → clean layers, with no duplicates, no partial loads, and a ledger that says what each run did. Re-running is always safe.
+Job postings from public sources (three at first, five after step s7) land in Postgres on every run, through raw → clean layers, with no duplicates, no partial loads, and a ledger that says what each run did. Re-running is always safe.
 
 ## Sources
 
-Verified on 2026-11-02. All three return a stable ID per posting.
+Verified on 2026-11-02 (Himalayas and Jobicy on 2026-11-04). All return a stable ID per posting. Sources marked *(s7)* are added in step s7; other candidates were checked and rejected on 2026-11-04 (no official API or feed, or terms that forbid scraping).
 
 | Source | Endpoint | Source ID | Notes |
 |---|---|---|---|
 | GetOnBoard | `GET /api/v0/categories/{category}/jobs?page=…&per_page=100&expand[]=company&expand[]=seniority&expand[]=tags&expand[]=modality` (`expand[]` inlines related objects, which otherwise come back as bare IDs) | `id` (a slug, e.g. `data-engineer-acme-remote-9cff`) | LATAM. Paginated. Whole categories, not keyword searches: `programming`, `data-science-analytics`, `machine-learning-ai`, `sysadmin-devops-qa`. Structured `seniority`, `min_salary`, `max_salary`, `modality`. HTML in description fields. |
 | Remotive | `GET /api/remote-jobs` (all categories in **one** request, no paging) | `id` (integer) | Terms: link back to the posting URL and credit Remotive; **at most 4 requests a day**; jobs are delayed 24 h. Test fixtures are hand-written from the docs, never recorded with a live request. **The free API returns only 10 jobs in total** (verified 2026-11-04: `"total-job-count": 10`); the full list is a paid API. |
+| Himalayas *(s7)* | `GET /jobs/api/search` (filters: `country`, `seniority`, `q`, `page`), with a free API key | `guid` (the job URL) | Remote jobs worldwide (114,633 on 2026-11-04). Each job lists the countries it is open to (`locationRestrictions`), structured salary (`minSalary`, `maxSalary`, `currency`, `salaryPeriod`), `seniority` and `categories`. Free key: 60 requests/min, 10,000/day; data refreshes daily. Terms: credit Himalayas, link back, and apply through `applicationLink`. |
+| Jobicy *(s7)* | `GET /api/v2/remote-jobs` (filters: `industry` such as `engineering`/`data-science`, `geo`, `count` up to 100, `cursor`) | `id` (integer) | Remote jobs with structured `salaryMin`/`salaryMax`, `jobLevel`, `jobGeo`. Poll at most once an hour. Terms: credit Jobicy; apply links go to Jobicy. |
 | Hacker News | Algolia: `search_by_date?tags=story,author_whoishiring` for the last two "Ask HN: Who is hiring?" stories, then `items/{story_id}` for each, whose top-level comments are the postings (replies dropped) | comment `objectID` (integer) | Free text, usually `Company \| Role \| Location \| REMOTE \| …` on the first line. Company and title can be missing; Phase 2's LLM extraction fills the gaps. Deleted comments are skipped. |
 
 Ingestion is deliberately independent of any resume: it builds one broad corpus, and matching against a resume happens later (Phases 2 and 3), so the same corpus serves any profile.
@@ -80,7 +82,7 @@ Two stages with a durable hand-off between them: what was fetched is committed t
 - **Fuzzy match** with `pg_trgm` trigram similarity, because company names vary across sources too:
   - **Blocking:** only pairs from different sources whose normalized companies share their first token are compared, which keeps comparisons few and avoids linking unrelated companies with similar titles.
   - **Rule:** company similarity ≥ 0.7 and title similarity ≥ 0.8. Thresholds are tuned on real data.
-- **Linking:** the oldest posting in a group becomes canonical, and the others get its `canonical_id`. Rows are never deleted or merged, so a wrong link can be undone.
+- **Linking:** matching is transitive (A~B and B~C put all three in one group; computed with union-find). The oldest posting in a new group becomes canonical, and the others get its `canonical_id`. If a new pair joins two existing groups, the older canonical wins and the other group's members move under it. Linking runs after every ingest, resume and rebuild, over all of `postings`; a failure is logged and retried next run, and doesn't fail the run. Rows are never deleted or merged, so a wrong link can be undone.
 - **Canonical is identity, fixed; the representative is chosen at read time.** The canonical never changes, even after it closes, so links stay stable. No source is the truth about whether a job is still open (each board only knows its own copy), so a group counts as open while **any** member is active. A view, `current_postings`, returns one row per group: the canonical if it is active, otherwise the oldest active member (`DISTINCT ON (COALESCE(canonical_id, id))`). Search and the agent read that view.
 - Postings without a company (some HN comments) are not linked in Phase 1. Phase 2's LLM extraction fills in the company, and embeddings can add a semantic signal to matching later.
 
@@ -125,9 +127,10 @@ The order the phase is built in, one reviewable piece at a time. Steps are about
 | s1 | Schema: ORM models, migration `0002`, schema tests | Done (`d46666c`) |
 | s2 | HTTP `Fetcher` (retries, backoff, polite interval) and the three extractors, with fixtures | Done (`bd98296`) |
 | s3 | `PostingIn`, a parser per source, and the transform (upsert, quarantine, closed postings) | Done (`a04d28c`) |
-| s4 | Pipeline: `COPY` load, run ledger, advisory lock, checks, `--resume`, `--force`, `transform --rebuild`, CLI | Done |
-| s5 | Cross-source linking (`pg_trgm`) and the `current_postings` view | To do |
+| s4 | Pipeline: `COPY` load, run ledger, advisory lock, checks, `--resume`, `--force`, `transform --rebuild`, CLI | Done (`0751cfc`) |
+| s5 | Cross-source linking (`pg_trgm`, union-find over candidate pairs) and the `current_postings` view | Done |
 | s6 | Scheduling (documented `crontab` line) and the acceptance run on real data | To do |
+| s7 | Two more sources, Himalayas and Jobicy: extractor, parser and fixtures each; migration adding them to the `source` CHECK constraints; optional `HIMALAYAS_API_KEY` | To do |
 
 Steps s1 to s3 were committed before this convention, as `[jobradar][p1] …`.
 
