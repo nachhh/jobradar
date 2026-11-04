@@ -1,0 +1,486 @@
+{
+  "data": [
+    {
+      "id": "founding-ai-engineer-sapling-remote",
+      "type": "job",
+      "attributes": {
+        "title": "Founding AI Engineer",
+        "description_headline": "What we’re looking for",
+        "description": "<p>Strong software engineering fundamentals and experience shipping production systems.</p><p>The ability to take an ambiguous problem and turn it into a practical, reliable product.</p><p>Experience building with LLMs, agents, or applied ML—or a strong engineering background and evidence that you can learn quickly.</p><p>Sound judgment about reliability, security, privacy, and when a workflow needs human oversight.</p><p>A willingness to work across the stack and stay close to users.</p><p>Clear communication, high standards, and a collaborative approach to solving problems.</p><p>Experience in healthcare, fintech, payments, developer infrastructure, or an early-stage startup is especially relevant. You don’t need to have worked in healthcare before.</p>",
+        "projects": "<h3><strong>About Sapling</strong></h3><p>Sapling is building an AI operating system for independent medical practices. We connect patient communication, clinical documentation, and care coordination into an autonomous healthcare team that helps practices keep patients informed, follow through on care plans, and coordinate care across providers.</p><p>Meaningful ownership: Help shape the product, architecture, and company while the team is still small.</p><p>An AI-native engineering culture: Use AI throughout how we build, while holding ourselves to high standards for product quality and reliability.</p><p>Build with people who care about their craft: Work with teammates who value trust, direct feedback, and helping each other do their best work, with sustainable hours.</p>",
+        "functions_headline": "What you’ll do",
+        "functions": "<p>Build and ship AI agents that support clinical documentation, patient follow-up, and care coordination across the patient journey.</p><p>Own projects end to end: understand the problem, design the system, ship it, and improve it based on customer feedback.</p><p>Build the infrastructure that makes agents dependable, including integrations, tool use, evaluations, monitoring, and human review.</p><p>Work directly with practices to turn complex care workflows into software that helps clinicians stay informed and patients get the care they need.</p><p>Shape our architecture, technical standards, and engineering team as we grow.</p>",
+        "benefits_headline": "Benefits",
+        "benefits": "<p>High compensation</p><p>Flexible vacation policies</p><p>Work schedule overlap with US PT time</p>",
+        "desirable_headline": "",
+        "desirable": "",
+        "remote": true,
+        "remote_modality": "fully_remote",
+        "remote_zone": null,
+        "countries": [
+          "Remote"
+        ],
+        "lang": "en",
+        "category_name": "Machine Learning & AI",
+        "perks": [
+          "remote_full",
+          "flexible_hours",
+          "computer_provided",
+          "informal_dresscode",
+          "vacation_over_legal"
+        ],
+        "min_salary": 4500,
+        "max_salary": 7000,
+        "published_at": 1793465080,
+        "response_time_in_days": {
+          "min": null,
+          "max": null
+        },
+        "applications_count": 162,
+        "location_regions": {
+          "data": []
+        },
+        "location_tenants": {
+          "data": []
+        },
+        "location_cities": {
+          "data": []
+        },
+        "modality": {
+          "data": {
+            "id": "1",
+            "type": "modality",
+            "attributes": {
+              "name": "Full time",
+              "locale_key": "full_time"
+            }
+          }
+        },
+        "seniority": {
+          "data": {
+            "id": "4",
+            "type": "seniority",
+            "attributes": {
+              "name": "Senior",
+              "locale_key": "senior"
+            }
+          }
+        },
+        "tags": {
+          "data": [
+            {
+              "id": "software-engineering",
+              "type": "tag",
+              "attributes": {
+                "name": "Software Engineering",
+                "keywords": "Software Engineering Hiring, Software Engineering Roles, Software Engineering Tools"
+              }
+            },
+            {
+              "id": "large-language-models",
+              "type": "tag",
+              "attributes": {
+                "name": "Large Language Models",
+                "keywords": "LLM, Large Language Model"
+              }
+            },
+            {
+              "id": "ai-agents",
+              "type": "tag",
+              "attributes": {
+                "name": "AI Agents",
+                "keywords": null
+              }
+            },
+            {
+              "id": "system-design",
+              "type": "tag",
+              "attributes": {
+                "name": "System Design",
+                "keywords": "Structural Patterns, System Refactoring, System Reengineering, Sustainable Design Patterns, System Design Patterns, System Modeling"
+              }
+            },
+            {
+              "id": "evaluation",
+              "type": "tag",
+              "attributes": {
+                "name": "Evaluation",
+                "keywords": "Evaluation Coding, Evaluation Design, Evaluation Analysis, Evaluation Metrics, Evaluation Testing, Evaluation Methods, Evaluation Processes, Evaluation Tools"
+              }
+            },
+            {
+              "id": "monitoring",
+              "type": "tag",
+              "attributes": {
+                "name": "Monitoring",
+                "keywords": "Monitoring APM, Monitoring Alarms, Monitor, Monitoring Applications, Monitoring Automation, Monitoring Platforms, Monitoring KPIs, Monitoring Policies, Monitoring Practices, Monitoring Services, Monitor Tools, Monitoring Toolsets, Monitoring Tools"
+              }
+            }
+          ]
+        },
+        "company": {
+          "data": {
+            "id": "sapling",
+            "type": "company",
+            "attributes": {
+              "name": "Sapling",
+              "description": "Learn more at saplinghealth.com",
+              "long_description": "",
+              "projects": null,
+              "benefits": "<p>High compensation</p><p>Flexible vacation policies</p><p>Work schedule overlap with US PT time</p>",
+              "web": "https://saplinghealth.com",
+              "twitter": null,
+              "github": null,
+              "facebook": null,
+              "angellist": null,
+              "country": "US",
+              "response_time_in_days": {
+                "min": null,
+                "max": null
+              },
+              "logo": "https://getonbrd-prod.s3.amazonaws.com/uploads/users/logo/20961/sapling-logo-square.png"
+            }
+          }
+        }
+      },
+      "links": {
+        "public_url": "https://www.getonbrd.com/jobs/founding-ai-engineer-sapling-remote"
+      }
+    },
+    {
+      "id": "ai-engineer-rag-intelligent-agents-dynamic-devs-santiago-61bd",
+      "type": "job",
+      "attributes": {
+        "title": "AI Engineer (RAG & Intelligent Agents)",
+        "description_headline": "Requerimientos del cargo",
+        "description": "<ul><li>+3 años de experiencia en roles de desarrollo de software (Python, Node.js, Go, Java o similar). <strong>y al menos 1 año trabajando con sistemas de IA/LLMs en entornos productivos o experimentales avanzados</strong>. </li><li>Experiencia construyendo soluciones con <strong>LLMs, embeddings y vector stores</strong>.</li><li>Conocimiento en <strong>RAG</strong>, diseño de prompts y agentes estructurados.</li><li>Experiencia con <strong>CI/CD</strong> y buenas prácticas de despliegue en entornos productivos.</li><li>Conocimiento en prácticas de calidad: testing, documentación, seguridad y control de versiones.</li></ul><p><strong>Tecnologías con las que trabajarás:</strong></p><ul><li><strong>LLMs:</strong> OpenAI, Anthropic, Cohere, Mistral, Llama</li><li><strong>RAG:</strong> Embeddings, pipelines de recuperación y bases vectoriales</li><li><strong>Frameworks:</strong> LangChain, LlamaIndex, Semantic Kernel</li><li><strong>Infraestructura:</strong> Docker, Kubernetes, CI/CD</li><li><strong>Metodologías:</strong> Git, Jira/YouTrack, metodologías ágiles</li></ul>",
+        "projects": "<p>En Dynamic Devs somos una consultora boutique de software enfocada en calidad, relaciones de largo plazo y excelencia en ejecución. </p><p>📢 <strong>Estamos buscando </strong>a un <strong>AI Engineer</strong> con experiencia en el desarrollo de agentes inteligentes basados en LLMs, RAG y automatización de procesos. Serás responsable de diseñar, construir e implementar soluciones que transformen requerimientos de negocio en agentes accionables, confiables y escalables.</p>",
+        "functions_headline": "Funciones del cargo",
+        "functions": "<ul><li>Desarrollar agentes inteligentes basados en <strong>LLMs</strong> para casos de uso corporativos.</li><li>Implementar <strong>RAG (Retrieval-Augmented Generation)</strong> para acceso controlado a conocimiento y datos internos.</li><li>Diseñar y estructurar <strong>prompts, roles, límites operativos y flujos de interacción</strong> entre agentes y usuarios.</li><li> Realizar <strong>ajustes de modelos (fine-tuning ligero, prompt tuning o adapters)</strong>, evaluación y optimización según el caso de uso. </li><li>Automatizar procesos mediante agentes orientados a análisis, validación, generación de contenido y mejora continua.</li><li>Optimizar <strong>costo, tiempos de respuesta y performance</strong> en pipelines de IA.</li><li>Construir y mantener pipelines <strong>CI/CD</strong> para modelos y agentes.</li><li>Realizar <strong>pruebas funcionales y de seguridad</strong> orientadas a soluciones de IA.</li><li>Trabajar con equipos de producto, seguridad, arquitectura y DevOps para asegurar integraciones estables y seguras.</li><li>Traducir requerimientos de negocio en <strong>especificaciones técnicas</strong> y prototipos funcionales.</li></ul>",
+        "benefits_headline": "Condiciones",
+        "benefits": "<p>⌚ Horario flexible 🕒<br>🚀 Haz un impacto. Trabaja en proyectos desafiantes<br>📚 IT Training: acceso a más de 500 cursos actualizados cada semana 📖<br>🎤 Dev Talks: conferencias exclusivas con expertos del sector<br>🎉 Día especial: 🎂 ¡Día libre por cumpleaños!<br>👥 Trabaja en un equipo talentoso y multicultural usando tecnología increíble<br>🎙️ Escucha nuestro podcast aquí: 🔗 Escuchar Podcast<br>🌐 Visítanos en nuestra web: 🔗 Dynamic Devs</p>",
+        "desirable_headline": "Opcionales",
+        "desirable": "<ul><li>Experiencia con <strong>LangChain, LlamaIndex o Semantic Kernel</strong>.</li><li>Experiencia en bases vectoriales (Pinecone, Weaviate, ChromaDB, Qdrant).</li><li>Experiencia en <strong>MLOps o LLMOps</strong> (monitorización, métricas, ajustes en producción).</li><li>Familiaridad con arquitectura de microservicios y APIs REST.</li><li>Comprensión de <strong>NLP, embeddings y métricas de evaluación de modelo</strong></li></ul>",
+        "remote": false,
+        "remote_modality": "hybrid",
+        "remote_zone": null,
+        "countries": [
+          "Chile"
+        ],
+        "lang": "lang_not_specified",
+        "category_name": "Machine Learning & AI",
+        "perks": [
+          "internal_talks",
+          "life_insurance",
+          "remote_partial",
+          "digital_library",
+          "education_stipend",
+          "vacation_on_birthday"
+        ],
+        "min_salary": null,
+        "max_salary": null,
+        "published_at": 1793165289,
+        "response_time_in_days": {
+          "min": 1,
+          "max": 5
+        },
+        "applications_count": 33,
+        "location_regions": {
+          "data": []
+        },
+        "location_tenants": {
+          "data": []
+        },
+        "location_cities": {
+          "data": [
+            {
+              "id": 1,
+              "type": "location_city"
+            }
+          ]
+        },
+        "modality": {
+          "data": {
+            "id": "1",
+            "type": "modality",
+            "attributes": {
+              "name": "Full time",
+              "locale_key": "full_time"
+            }
+          }
+        },
+        "seniority": {
+          "data": {
+            "id": "4",
+            "type": "seniority",
+            "attributes": {
+              "name": "Senior",
+              "locale_key": "senior"
+            }
+          }
+        },
+        "tags": {
+          "data": [
+            {
+              "id": "ci-cd",
+              "type": "tag",
+              "attributes": {
+                "name": "CI/CD",
+                "keywords": "CI/CD, CD/CI, CDCI, CICD, DevOps, Continuous Delivery, Continuous Integration, CI, CI/CD Tools"
+              }
+            },
+            {
+              "id": "prompt-engineering",
+              "type": "tag",
+              "attributes": {
+                "name": "Prompt Engineering",
+                "keywords": "Prompt Optimization, Prompt Writing, Prompt Design, Promting"
+              }
+            },
+            {
+              "id": "rag",
+              "type": "tag",
+              "attributes": {
+                "name": "RAG",
+                "keywords": "RAGs, RAG Frameworks, RAG Systems"
+              }
+            },
+            {
+              "id": "embeddings",
+              "type": "tag",
+              "attributes": {
+                "name": "Embeddings",
+                "keywords": null
+              }
+            },
+            {
+              "id": "software-testing",
+              "type": "tag",
+              "attributes": {
+                "name": "Software Testing",
+                "keywords": null
+              }
+            },
+            {
+              "id": "software-development",
+              "type": "tag",
+              "attributes": {
+                "name": "Software Development",
+                "keywords": "Software Development Basics, Software Development Fundamentals, Software Development Practices, Software Development Process, Software Development Projects, Software Training, Software Development Training"
+              }
+            },
+            {
+              "id": "vector-databases",
+              "type": "tag",
+              "attributes": {
+                "name": "Vector Databases",
+                "keywords": null
+              }
+            }
+          ]
+        },
+        "company": {
+          "data": {
+            "id": "dynamic-devs",
+            "type": "company",
+            "attributes": {
+              "name": "Dynamic Devs",
+              "description": "Desarrollo de software: Auténtico entendimiento y habilitación de la innovación tecnológica",
+              "long_description": "<p><strong>Dynamic Devs: habilitamos procesos de innovación apoyados en la tecnología</strong></p><p>🚀 <strong>¿Por qué lo hacemos? </strong></p><ul><li>Nos motiva <strong>posibilitar cambios de impacto real en la vida de las personas</strong> que ayudamos. </li><li>Nos divierte ver que las cosas estén <strong>funcionando mejor y superarnos en el proceso</strong>. </li><li>Nos motiva lograr los resultados y <strong>ayudar a las personas a cumplir sus objetivos</strong>. </li></ul><blockquote>Más que proveedores, somos habilitadores de la tecnología y sus beneficios</blockquote><p>✨<strong>¿Cómo lo hacemos? </strong></p><p>Facilitamos el acceso a la tecnología para generar entendimiento y soluciones para las personas. Profundizamos y nos involucramos en las problemáticas de negocio de nuestros clientes para la <strong>optimización de sus procesos y el desarrollo de oportunidades</strong>. Nuestro principal activo es el conocimiento directo de los involucrados y sus desafíos, para crear soluciones de impacto. </p><p>Una de las principales problemáticas que encontramos en las empresas es la comunicación entre los stakeholders y la toma decisiones, por eso, más allá de proveer herramientas y conocimientos tecnológicos, nos preocupamos por <strong>gestionar el cambio,</strong> además de <strong>fortalecer lazos y comunicaciones</strong> a través de historias relevantes que generen <strong>confianza en la tecnología</strong> y que faciliten la toma de decisiones, para que los cambios puedan ocurrir. </p><p>👩‍💻 <strong>¿Qué hacemos? </strong></p><p>El pilar de nuestros servicios es el desarrollo de software, centrado en las mejores prácticas de DevOps, Continuous Delivery y Continuous Integration. Habilitamos procesos de innovación apoyados en la tecnología para la gestión de productos digitales y procesos empresariales. </p><p><strong>Service Offering de Dynamic Devs</strong></p><p>Te invitamos a unirte a nuestro equipo y desarrollar tu carrera en las siguientes áreas:</p><p><strong>Accelerator Approach</strong></p><ul><li>Tech Accelerator Team</li><li>Habilitación DevOps</li></ul><p><strong>Build &amp; Integrate</strong></p><ul><li>Software Development</li><li>Design As A Service (UX/UI)</li><li>Tech Talent As A Service</li><li>Interview As A Service</li></ul><p><strong>Make It Live</strong></p><ul><li>Cloud Engineering</li><li>Automation Engineering</li><li>Quality Engineering</li></ul><p><strong>Dynamic Culture</strong></p><ul><li>Gestión del cambio</li><li>Academy &amp; Learning</li><li>People</li></ul><p>¡También tenemos un <a href=\"https://open.spotify.com/show/4fvKHii2mWHkX8mz28klz8?si=aOrmcEkDSJ68yEozh7ZJ4w\">podcast</a>! Allí conversamos con referentes del sector tecnológicos, además de compartir experiencias y conocimientos a partir de los proyectos que abordamos. </p><p>¡Únete a nuestro equipo! Te estamos esperando.</p>",
+              "projects": "<p>En Dynamic Devs somos una consultora de ingeniería de software especializada en modernización de sistemas, cloud-native development, arquitectura en nube y plataformas basadas en datos e inteligencia artificial.&nbsp;</p><p>Trabajamos con organizaciones líderes en industrias altamente reguladas como banca, seguros, AFPs, servicios financieros y retail financiero, ayudándolas a transformar sus sistemas críticos y canales digitales para habilitar nuevas capacidades de negocio.&nbsp;</p><p>📢 Buscamos un Technical Account Manager (TAM) para liderar la relación técnica estratégica con nuestros clientes en Perú. Este rol actúa como el principal asesor técnico y de arquitectura para las cuentas, asegurando que las soluciones implementadas generen valor sostenido y ayudando a identificar oportunidades de modernización, optimización y expansión tecnológica.&nbsp;</p>",
+              "benefits": "<p>⌚ Horario flexible 🕒<br>🚀 Haz un impacto. Trabaja en proyectos desafiantes<br>📚 IT Training: acceso a más de 500 cursos actualizados cada semana 📖<br>🎤 Dev Talks: conferencias exclusivas con expertos del sector<br>🎉 Día especial: 🎂 ¡Día libre por cumpleaños!<br>👥 Trabaja en un equipo talentoso y multicultural usando tecnología increíble<br>🎙️ Escucha nuestro podcast aquí: 🔗 Escuchar Podcast<br>🌐 Visítanos en nuestra web: 🔗 Dynamic Devs</p>",
+              "web": "https://www.dynamicdevs.io",
+              "twitter": "devsinfo",
+              "github": "dynamicdevs",
+              "facebook": "dynamicdevs",
+              "angellist": "",
+              "country": "CL",
+              "response_time_in_days": {
+                "min": 14,
+                "max": 26
+              },
+              "logo": "https://getonbrd-prod.s3.amazonaws.com/uploads/users/logo/9218/1631561689394.jpeg"
+            }
+          }
+        }
+      },
+      "links": {
+        "public_url": "https://www.getonbrd.com/jobs/ai-engineer-rag-intelligent-agents-dynamic-devs-santiago-61bd"
+      }
+    },
+    {
+      "id": "ai-sales-specialist-agendapro-santiago",
+      "type": "job",
+      "attributes": {
+        "title": "AI Sales Specialist",
+        "description_headline": "Requerimientos: ",
+        "description": "<p>• Formación en Ingeniería Comercial, Administración de Empresas o carrera afín.<br>• Hasta 2 años de experiencia.<br>• Idealmente con experiencia en ventas B2B y/o SaaS.<br>• Muy buenas habilidades comerciales y de comunicación.<br>• Persona autónoma, ejecutora, curiosa y con ganas de aprender rápido.<br>• Cómoda trabajando en un equipo joven, donde todavía hay mucho espacio para proponer y construir.<br>• Disponibilidad para trabajar 100% presencial.</p>",
+        "projects": "<p>🚀 Buscamos <strong>AI Sales Specialist</strong> para sumarse a AgendaPro.</p><p><strong>AgendaPro</strong> es la plataforma líder en LATAM para gestionar agenda, pagos y crecimiento en negocios de belleza, salud y bienestar, con más de 12 años creciendo y respaldo de Y Combinator y una Serie B de US$35M. Hace 4 meses nació un nuevo equipo enfocado en llevar al mercado un producto de IA agéntica para la industria de belleza. Hoy estamos creciendo y queremos sumar a dos personas a nuestro equipo comercial: gente con energía comercial, pila y ganas de aprender, que quiera ser parte de una etapa temprana donde todavía hay muchísimo por construir, probar y escalar.</p><p>📍 <strong>Modalidad 100% presencial</strong> – oficina a pasos del Metro Los Leones, Santiago.</p>",
+        "functions_headline": "🚀 Qué harás / Responsabilidades:",
+        "functions": "<p><strong>Tu desafío:</strong> Vas a ser responsable del ciclo comercial completo: desde generar la primera conversación con un potencial cliente hasta lograr que se convierta en cliente de AgendaPro. Buscarás y contactarás nuevas oportunidades por teléfono y WhatsApp, entenderás sus necesidades, harás demos del producto y darás seguimiento a cada oportunidad hasta cerrar la venta.</p><p>Pero tu rol no termina en vender: cada conversación con un cliente nos ayuda a entender mejor qué necesita el mercado. Vas a trabajar directamente con Producto e Ingeniería, compartiendo insights que serán parte de las decisiones sobre qué construimos y cómo seguimos evolucionando el producto. Además, al ser un equipo que lleva solo 4 meses, vas a tener espacio para probar nuevas formas de vender, aprender qué funciona y ayudarnos a construir nuestro playbook comercial.</p><p>• Gestionar el ciclo comercial completo: prospección → demo → seguimiento → cierre.<br>• Buscar y contactar nuevas oportunidades por teléfono y WhatsApp.<br>• Entender las necesidades del cliente y traducirlas en una demo relevante.<br>• Hacer seguimiento de cada oportunidad hasta cerrar la venta.<br>• Compartir insights de mercado con Producto e Ingeniería.<br>• Proponer y probar nuevas formas de vender, aportando al playbook comercial del equipo.</p>",
+        "benefits_headline": "🔥 Qué ofrecemos:",
+        "benefits": "<ul><li><strong>Impacto real</strong> en un producto usado por miles de negocios de la región.</li><li><strong>Equipo chico, rápido y sin capas innecesarias:</strong> espacio para construir, proponer y equivocarte rápido.</li><li><strong>15 días hábiles de vacaciones</strong> al año + 5 días adicionales de descanso, día libre por tu cumpleaños y días por matrimonio / postnatal parental.</li><li><strong>DODO:</strong> salud mental a bajo costo y otras especialidades.</li><li><strong>Presupuesto para capacitaciones</strong> — acá se crece de verdad.</li><li><strong>Seguro complementario</strong> de salud.</li><li>Desayuno, almuerzo y snacks en la oficina.</li></ul>",
+        "desirable_headline": "",
+        "desirable": "",
+        "remote": false,
+        "remote_modality": "no_remote",
+        "remote_zone": null,
+        "countries": [
+          "Chile"
+        ],
+        "lang": "lang_not_specified",
+        "category_name": "Machine Learning & AI",
+        "perks": [
+          "flexible_hours",
+          "health_coverage",
+          "computer_provided",
+          "informal_dresscode",
+          "vacation_over_legal",
+          "beverages_and_snacks"
+        ],
+        "min_salary": null,
+        "max_salary": null,
+        "published_at": 1785210840,
+        "response_time_in_days": {
+          "min": null,
+          "max": null
+        },
+        "applications_count": 41,
+        "location_regions": {
+          "data": []
+        },
+        "location_tenants": {
+          "data": []
+        },
+        "location_cities": {
+          "data": [
+            {
+              "id": 1,
+              "type": "location_city"
+            }
+          ]
+        },
+        "modality": {
+          "data": {
+            "id": "1",
+            "type": "modality",
+            "attributes": {
+              "name": "Full time",
+              "locale_key": "full_time"
+            }
+          }
+        },
+        "seniority": {
+          "data": {
+            "id": "2",
+            "type": "seniority",
+            "attributes": {
+              "name": "Junior",
+              "locale_key": "junior"
+            }
+          }
+        },
+        "tags": {
+          "data": [
+            {
+              "id": "autonomy",
+              "type": "tag",
+              "attributes": {
+                "name": "Autonomy",
+                "keywords": null
+              }
+            },
+            {
+              "id": "ventas",
+              "type": "tag",
+              "attributes": {
+                "name": "Sales",
+                "keywords": "Ventas, BDR, Sale Techniques, Sales Administration, Sales Analysis, Sales & Distribution, Salesforce Sales, Sales Cloud, Salesforce Sales Cloud, Sales Calls, Sales, sales representative, business development, ventas, Ventas B2B, Ventas Consultivas"
+              }
+            },
+            {
+              "id": "b2b",
+              "type": "tag",
+              "attributes": {
+                "name": "B2B",
+                "keywords": null
+              }
+            },
+            {
+              "id": "saas",
+              "type": "tag",
+              "attributes": {
+                "name": "SaaS",
+                "keywords": "SaaS Applications, SaaS Architecture, SaaS Automation, SaaS B2B Sales, SaaS B2B Prospecting, SaaS B2C, SaaS Cloud Services, SaaS Billing, SaaS Business Models"
+              }
+            },
+            {
+              "id": "prospecting",
+              "type": "tag",
+              "attributes": {
+                "name": "Prospecting",
+                "keywords": null
+              }
+            },
+            {
+              "id": "product-demonstration",
+              "type": "tag",
+              "attributes": {
+                "name": "Product Demonstration",
+                "keywords": "Product Demonstrations, Product Demos, Process Demonstrations"
+              }
+            },
+            {
+              "id": "customer-needs-analysis",
+              "type": "tag",
+              "attributes": {
+                "name": "Customer Needs Analysis",
+                "keywords": null
+              }
+            },
+            {
+              "id": "communication",
+              "type": "tag",
+              "attributes": {
+                "name": "Communication",
+                "keywords": "Communication Skills, Communication Analysis, Comunicación, Comunicaciones, Communication Channels, Communication Planning, Communication Plans, Communication Architecture, Communication Audiovisual, Comunicación empresarial"
+              }
+            }
+          ]
+        },
+        "company": {
+          "data": {
+            "id": "agendapro",
+            "type": "company",
+            "attributes": {
+              "name": "AgendaPro",
+              "description": "Ayudamos a dueños de negocios a cobrar a sus clientes online y aceptar reservas fácilmente ",
+              "long_description": "<p>AgendaPro permite a dueños y administradores de Centros de Estética, Salud, Belleza y Deporte cobrar a sus clientes online, y aceptar reservas fácilmente. Somos una de las Startup tecnológicas de Y Combinator con mayor crecimiento en Latinoamérica: tenemos más de 15.000 clientes en más de 17 países dentro de los cuales está: Argentina, Chile, Colombia, México, Perú, y próximamente Brasil. </p><p>Nuestra misión es crear un “software todo-en-uno” simple e intuitivo, que permita a Centros de Salud, Belleza, y Bienestar conectar su negocio con el mundo digital, para que puedan enfocarse en lo más importante: sus clientes y hacer crecer su negocio. Esto a través de herramientas de marketing, gestión, pagos, y fidelización de clientes. </p><p>En AgendaPro resolvemos problemas desde la perspectiva de nuestros clientes a través de la tecnología. Las soluciones a estos problemas las construimos juntos en un entorno colaborativo, con equipos multidisciplinarios, 100% horizontales, donde se valora la voz de las ideas sobre todo lo demás. </p>",
+              "projects": "<div><strong>AgendaPro</strong> simplifica el día a día a dueños y administradores de Centros de Salud, Belleza y Deporte a través de un software de gestión todo-en-uno 💻 y soluciones POS 💰 (punto de ventas), el cual les permite enfocarse en lo más importante: sus clientes y hacer crecer su negocio.</div><div>Actualmente, tenemos más de 16.000 clientes en todo LATAM y Europa y somos parte de <strong>Y Combinator</strong>, una de las aceleradoras con más prestigio a nivel mundial. Reconocida por apoyar a empresas como Rappi, Stripe, Airbnb y Dropbox entre otras. Así que llegarás en el momento perfecto para colaborar con nuestras metas de crecimiento 🚀.</div><div>¿Preparado para crecer y enfrentar grandes desafíos con nosotros? 😎</div>",
+              "benefits": "<ul><li>El puesto es presencial en Santiago, Chile, contando con una oficina cómoda muy cercana al metro y con estacionamientos de bici</li><li>Incluimos stock options dependiendo de tu performance</li><li>Vacaciones sobre lo legal</li></ul>",
+              "web": "https://www.agendapro.com",
+              "twitter": "agendapro_cl",
+              "github": "",
+              "facebook": "agendapro",
+              "angellist": "",
+              "country": "US",
+              "response_time_in_days": {
+                "min": 1,
+                "max": 13
+              },
+              "logo": "https://getonbrd-prod.s3.amazonaws.com/uploads/users/logo/2696/Nuevo_logo_AgendaPro_cuadrado.png"
+            }
+          }
+        }
+      },
+      "links": {
+        "public_url": "https://www.getonbrd.com/jobs/ai-sales-specialist-agendapro-santiago"
+      }
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 100,
+    "total_pages": 2
+  }
+}

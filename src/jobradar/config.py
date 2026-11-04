@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
 
+    # Job sources (Phase 1). Optional: without it, Himalayas requests share a public allowance with
+    # every other keyless caller. Free key: https://himalayas.app/api-keys
+    himalayas_api_key: SecretStr | None = None
+
     log_level: str = "INFO"
 
 

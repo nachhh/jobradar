@@ -6,7 +6,7 @@ from collections.abc import Iterator
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Connection, Engine, create_engine, text
 
 from jobradar.config import get_settings
 
@@ -36,3 +36,38 @@ def db_engine() -> Iterator[Engine]:
 
     yield engine  # tests run here
     engine.dispose()  # teardown: close pooled connections
+
+
+@pytest.fixture
+def db_conn(db_engine: Engine) -> Iterator[Connection]:
+    """A connection inside a transaction that is rolled back after the test.
+
+    Default scope="function": a fresh one per test. Whatever the test writes disappears at the
+    rollback, so tests can't see each other's rows and the order they run in doesn't matter.
+    """
+    with db_engine.connect() as conn:
+        transaction = conn.begin()
+        yield conn
+        transaction.rollback()
+
+
+@pytest.fixture
+def clean_db(db_engine: Engine) -> Iterator[Engine]:
+    """The test engine with empty ingestion tables, emptied again afterwards.
+
+    For code that opens and commits its own transactions (the pipeline), which `db_conn`'s
+    rollback can't contain. TRUNCATE empties tables at once; CASCADE covers foreign keys.
+    """
+
+    def truncate() -> None:
+        with db_engine.begin() as conn:
+            conn.execute(
+                text(
+                    "TRUNCATE pipeline_runs, pipeline_run_sources, raw_postings, postings, rejected_postings "
+                    "RESTART IDENTITY CASCADE"
+                )
+            )
+
+    truncate()
+    yield db_engine
+    truncate()

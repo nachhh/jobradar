@@ -8,6 +8,7 @@ from logging.config import fileConfig
 
 from alembic import context
 
+import jobradar.models  # noqa: F401  (imported for its side effect, see below)
 from jobradar.db import Base, get_engine
 
 # Apply the [loggers] sections of alembic.ini, so commands print lines like
@@ -16,7 +17,8 @@ from jobradar.db import Base, get_engine
 if context.config.config_file_name is not None:
     fileConfig(context.config.config_file_name, disable_existing_loggers=False)
 
-# Importing models registers their tables on Base.metadata (Phase 1 adds `import jobradar.models`).
+# Importing jobradar.models registers its tables on Base.metadata; without that import the
+# metadata is empty and autogenerate would propose dropping every table.
 # Autogenerate diffs this metadata against the live schema to write new migration files.
 target_metadata = Base.metadata
 

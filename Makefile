@@ -2,7 +2,7 @@
 # `make <target>`; `make help` lists them. Each recipe line runs in its own shell.
 
 # Targets that are commands, not files: Make shouldn't look for files with these names.
-.PHONY: help install up down reset-db migrate health lint fmt typecheck test check
+.PHONY: help install up down reset-db migrate health ingest runs lint fmt typecheck test check
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-10s %s\n", $$1, $$2}'
@@ -26,6 +26,12 @@ migrate: ## Apply database migrations
 
 health: ## Check the database and pgvector
 	uv run jobradar health
+
+ingest: ## Fetch postings from every source and load them (rate-limited sources are skipped when fetched recently)
+	uv run jobradar ingest
+
+runs: ## Show the most recent pipeline runs and their counts
+	uv run jobradar runs
 
 lint: ## Lint and check formatting
 	uv run ruff check .
