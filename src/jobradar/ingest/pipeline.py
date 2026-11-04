@@ -38,8 +38,13 @@ logger = logging.getLogger(__name__)
 
 # Data quality check (spec, "Checks"): above this share of rejected records, the source fails.
 MAX_REJECT_RATE = 0.20
-# Remotive allows 4 requests a day; a run within this window of its last extract skips it.
-REMOTIVE_MIN_INTERVAL = timedelta(hours=6)
+# Minimum time between two fetches of a source, from its terms or how often its data changes.
+# A run within that window of the source's last completed extract skips it (unless --force).
+MIN_FETCH_INTERVAL = {
+    Source.REMOTIVE: timedelta(hours=6),  # at most 4 requests a day
+    Source.HIMALAYAS: timedelta(hours=20),  # data refreshes daily; ~230 requests per fetch
+    Source.JOBICY: timedelta(hours=1),  # "must not exceed once per hour"
+}
 # The advisory lock's id: Postgres identifies advisory locks by a 64-bit integer, and any fixed
 # value that nothing else in the database uses will do. Deriving it from a readable name documents
 # what it locks (the first 8 bytes of a SHA-256, read as a signed 64-bit integer).
@@ -51,7 +56,7 @@ class RunLockedError(Exception):
 
 
 class NothingToRunError(Exception):
-    """Every requested source was skipped (e.g. Remotive inside its 6-hour window)."""
+    """Every requested source was skipped (each inside its minimum fetch interval)."""
 
 
 class ResumeError(Exception):
@@ -90,7 +95,7 @@ def run_ingest(
 ) -> RunResult:
     """Start a new run over `sources`. `extractors` and `make_fetcher` can be swapped in tests."""
     with _ingest_lock(engine):
-        to_run, skipped = _apply_remotive_guard(engine, sources, force=force)
+        to_run, skipped = _apply_fetch_intervals(engine, sources, force=force)
         if not to_run:
             raise NothingToRunError(f"all sources skipped: {', '.join(skipped)}")
         params = {"sources": list(to_run), "skipped": list(skipped), "force": force}
@@ -120,7 +125,7 @@ def resume_ingest(
         }
         pending = [Source(s) for s in run.params["sources"]]
         needs_fetch = [s for s in pending if s not in states or states[s].stage is None]
-        allowed, skipped = _apply_remotive_guard(engine, needs_fetch, force=force)
+        allowed, skipped = _apply_fetch_intervals(engine, needs_fetch, force=force)
         for source in pending:
             state = states.get(source)
             if state is not None and state.status == SourceStatus.SUCCEEDED:
@@ -276,29 +281,40 @@ def load_raw(conn: Connection, run_id: uuid.UUID, source: Source, records: Seque
     return sum(1 for row in result if row.was_inserted)
 
 
-# --- Remotive's daily limit -------------------------------------------------------------------
+# --- Fetch-frequency limits ------------------------------------------------------------------
 
 
-def _apply_remotive_guard(
+def _apply_fetch_intervals(
     engine: Engine, sources: Sequence[Source], *, force: bool
 ) -> tuple[list[Source], list[Source]]:
-    """Split `sources` into (to run, skipped).
+    """Split `sources` into (to run, skipped) by MIN_FETCH_INTERVAL.
 
-    Remotive is skipped when its last *completed extract* finished less than 6 hours ago. That's
-    "stage reached", not "source succeeded": a run whose transform failed still spent the request.
+    A source is skipped when its last *completed extract* finished less than its interval ago.
+    That's "stage reached", not "source succeeded": a run whose transform failed still spent the
+    requests.
     """
-    if force or Source.REMOTIVE not in sources:
+    limited = [s for s in sources if s in MIN_FETCH_INTERVAL]
+    if force or not limited:
         return list(sources), []
-    last_extract = _query(
-        engine,
-        select(func.max(PipelineRunSource.finished_at)).where(
-            PipelineRunSource.source == Source.REMOTIVE, PipelineRunSource.stage.is_not(None)
-        ),
-    )[0][0]
-    if last_extract is not None and datetime.now(UTC) - last_extract < REMOTIVE_MIN_INTERVAL:
-        logger.warning("remotive: last extract at %s, less than 6 h ago; skipped (use --force)", last_extract)
-        return [s for s in sources if s != Source.REMOTIVE], [Source.REMOTIVE]
-    return list(sources), []
+    query = (
+        select(PipelineRunSource.source, func.max(PipelineRunSource.finished_at))
+        .where(PipelineRunSource.source.in_(limited), PipelineRunSource.stage.is_not(None))
+        .group_by(PipelineRunSource.source)
+    )
+    with engine.connect() as conn:
+        last_extracts: dict[str, datetime] = {
+            source: finished for source, finished in conn.execute(query) if finished is not None
+        }
+    now = datetime.now(UTC)
+    skipped = [s for s in limited if last_extracts.get(s) and now - last_extracts[s] < MIN_FETCH_INTERVAL[s]]
+    for source in skipped:
+        logger.warning(
+            "%s: last extract at %s, less than %s ago; skipped (use --force)",
+            source,
+            last_extracts[source],
+            MIN_FETCH_INTERVAL[source],
+        )
+    return [s for s in sources if s not in skipped], skipped
 
 
 # --- The lock ---------------------------------------------------------------------------------

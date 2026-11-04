@@ -35,7 +35,7 @@ uv run jobradar transform --rebuild         # re-parse everything already fetche
 uv run jobradar runs                        # recent runs, per-source status and counts
 ```
 
-Remotive allows 4 requests a day, so `ingest` skips it when it was fetched less than 6 hours ago; `--force` overrides that.
+Some sources limit how often they may be fetched (Remotive: every 6 h; Himalayas: every 20 h, its data refreshes daily; Jobicy: every hour), so `ingest` skips a source fetched more recently than that; `--force` overrides it.
 
 ## Scheduling
 

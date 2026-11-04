@@ -42,7 +42,7 @@ rejected_postings      records that failed validation, with the reason (quaranti
 - **`raw_postings`:** `id`, `source`, `src_posting_id`, `payload` (JSONB, exactly as received), `payload_hash`, `first_run_id`, `first_fetched_at`, `last_run_id`, `last_fetched_at`. Unique on `(source, src_posting_id, payload_hash)`: an unchanged posting fetched again is not stored again, so the table holds one row per *version* of each posting. That history makes it possible to rebuild `postings` from raw at any time, for example after fixing a parser bug, without calling the APIs again.
   - `payload_hash` ignores *volatile* fields that change without the posting changing (GetOnBoard's `applications_count` and the company's `response_time_in_days`); otherwise nearly every run would add a version. The stored payload still keeps them.
   - The payload columns never change. `last_run_id` and `last_fetched_at` are refreshed every time the API returns that version again: they record that the posting was *seen* in a run. Without them, an unchanged posting would leave no trace of the run, and the transform could not tell "unchanged and still listed" from "closed" (both add no new version).
-- **`postings`:** `id`, `source`, `src_posting_id` (unique together), `url`, `title`, `company`, `location_text`, `remote` (`remote`, `hybrid`, `onsite` or `unknown`), `seniority`, `salary_min`, `salary_max`, `salary_text`, `posted_at`, `description` (plain text, HTML stripped), `tags`, `content_hash`, `first_seen_at`, `last_seen_at`, `last_run_id`, `is_active`, `dedup_key`, `canonical_id` (nullable self-reference).
+- **`postings`:** `id`, `source`, `src_posting_id` (unique together), `url`, `title`, `company`, `location_text`, `remote` (`remote`, `hybrid`, `onsite` or `unknown`), `seniority`, `salary_min`, `salary_max`, `salary_currency` (ISO code), `salary_period` (`hour`, `day`, `week`, `month`, `year`; added in s7, since sources give salaries in different units and amounts are stored as given, without conversion), `salary_text`, `posted_at`, `description` (plain text, HTML stripped), `tags`, `content_hash`, `first_seen_at`, `last_seen_at`, `last_run_id`, `is_active`, `dedup_key`, `canonical_id` (nullable self-reference).
 - **Closed postings:** GetOnBoard and Remotive drop a posting from their API when it closes. After a successful extract of a source, its postings not seen in that run get `is_active = false`. HN has no explicit closed signal, so an HN posting becomes inactive when **(a)** its comment is more than 45 days old (`created_at`), **or (b)** its thread was fetched successfully in this run and the comment was not in it (the comment was deleted, usually because the role was filled). Rule (b) applies only to threads fetched in the run: a comment whose thread has left the last-two window is out of range, not missing. A per-comment age gives every posting the same lifetime, while a thread-age or "not seen" rule would give 1 to 2 months depending on when in the month the comment was posted.
 - **`rejected_postings`:** `run_id`, `source`, `src_posting_id`, `payload`, `reason`.
 
@@ -73,7 +73,7 @@ Two stages with a durable hand-off between them: what was fetched is committed t
 
 **Concurrency:** a run takes a Postgres advisory lock with `pg_try_advisory_lock`. This is pessimistic locking (claim first, then work) that fails fast: a second run started while one is active exits with a message instead of waiting. The unique constraints would already prevent duplicate rows if two runs overlapped; the lock prevents duplicated work and double API calls (Remotive's daily limit).
 
-**Remotive limit:** the Remotive source is skipped if its last completed extract (stage `extracted` reached, whatever happened afterwards, since the request was spent either way) finished less than 6 hours ago, unless `--force` is given. If every requested source is skipped, no run is created.
+**Fetch-frequency limits:** a source with a minimum interval is skipped if its last completed extract (stage `extracted` reached, whatever happened afterwards, since the requests were spent either way) finished less than that interval ago, unless `--force` is given. Remotive: 6 hours (4 requests a day). Himalayas: 20 hours (data refreshes daily; ~230 requests per fetch). Jobicy: 1 hour (its terms). If every requested source is skipped, no run is created.
 
 ## Cross-source duplicates
 
@@ -127,10 +127,10 @@ Run against the local database with real data, on branch `jobradar-nachhh-p1-pos
 | 1 | `jobradar ingest` loads all three sources; `jobradar runs` shows the counts | ✅ Run `1451aadd`, started with the README's crontab command in a cron-like environment (empty environment, minimal `PATH`): GetOnBoard 602, Remotive 10, HN 436 fetched, all `succeeded`. First loads: 602 + 436 inserted (run `07e1dd15`), 10 inserted (run `995b1383`). |
 | 2 | An immediate re-run inserts nothing and reports everything unchanged | ✅ Run `09a0961c`: 602 + 436 unchanged, 0 new raw versions; run `1451aadd`: all three sources, 1,048 unchanged. |
 | 3 | Killing a run mid-load leaves the database as before | ✅ Run `12c24bd3` killed with `kill -9` during GetOnBoard: raw and clean row counts and `last_seen_at` unchanged; the ledger kept `running` for the run and the source, with no stage; the advisory lock was released by Postgres when the connection dropped. `ingest --resume` then finished the run (`succeeded`). |
-| 4 | `make check` passes locally and in CI | ✅ locally (81 tests). CI: pending the branch's first push. |
-| 5 | A cross-source duplicate linked on real data, or why none | No candidate pair exists yet, so none is linked. HN postings have no company until Phase 2 extracts it (decision D1), and Remotive's free API returns only 10 jobs, none from a company that also posts on GetOnBoard. Linking is covered by tests (exact, fuzzy, transitive, group merge). Real overlap is expected with step s7 (Himalayas: 114k jobs); thresholds are tuned then. One known near-miss to revisit: "senior data engineer" vs "senior data engineer remote" scores 0.75, below the 0.8 title threshold. |
+| 4 | `make check` passes locally and in CI | ✅ locally (81 tests) and in CI (GitHub Actions run `41787386052` on `4fdab4a`, including the history-wide secret scan). |
+| 5 | A cross-source duplicate linked on real data, or why none | ✅ After s7 (run `fdcc7102`): **21 links**, 20 exact and 1 fuzzy (Askable, "Software Engineer, AI Coding Tasks" on Remotive vs "… (Contract)" on Himalayas), all correct on inspection (Jobicy↔Himalayas and Remotive↔Himalayas). `current_postings` shows 2,688 jobs out of 2,709 postings. Before s7 there were no candidate pairs: HN postings have no company until Phase 2 (decision D1), and Remotive's 10 jobs shared no company with GetOnBoard. One known near-miss to revisit: "senior data engineer" vs "senior data engineer remote" scores 0.75, below the 0.8 title threshold. |
 
-Data quality on real data: 0 records rejected out of 1,048.
+Data quality on real data: 0 records rejected out of 2,709 (all five sources). Himalayas kept 1,593 tech jobs of the 4,599 open to Argentina; 847 of the dropped ones have no category at all, worth sampling later in case some are tech.
 
 ## Steps
 
@@ -143,14 +143,17 @@ The order the phase is built in, one reviewable piece at a time. Steps are about
 | s3 | `PostingIn`, a parser per source, and the transform (upsert, quarantine, closed postings) | Done (`a04d28c`) |
 | s4 | Pipeline: `COPY` load, run ledger, advisory lock, checks, `--resume`, `--force`, `transform --rebuild`, CLI | Done (`0751cfc`) |
 | s5 | Cross-source linking (`pg_trgm`, union-find over candidate pairs) and the `current_postings` view | Done (`533d28c`) |
-| s6 | Scheduling (documented `crontab` line) and the acceptance run on real data | Done |
-| s7 | Two more sources, Himalayas and Jobicy: extractor, parser and fixtures each; migration adding them to the `source` CHECK constraints; optional `HIMALAYAS_API_KEY` | To do |
+| s6 | Scheduling (documented `crontab` line) and the acceptance run on real data | Done (`4fdab4a`) |
+| s7 | Two more sources, Himalayas and Jobicy: extractor, parser and fixtures each; migration `0004` (`source` CHECK constraints, `salary_currency`/`salary_period`), per-source fetch intervals, optional `HIMALAYAS_API_KEY` | Done |
 
 Steps s1 to s3 were committed before this convention, as `[jobradar][p1] …`.
 
 ## Decisions
 
 - Raw storage: one row per version of a posting (2026-11-02).
+- Himalayas scope: jobs open to Argentina (`country=AR`, worldwide included), tech only by `parentCategories`, filtered at extract; at most once every 20 hours (2026-11-04).
+- Jobicy scope: `engineering`, `data-science` and `qa-testing` with `geo=latam` (LATAM plus "Anywhere") (2026-11-04).
+- Salaries stored as the source gives them, with `salary_currency` and `salary_period`; no conversion at ingestion (2026-11-04).
 - Raw rows carry `last_run_id`/`last_fetched_at`, refreshed on every fetch, so each run records which postings it saw; preferred over a separate append-only sightings table for simplicity (2026-11-03).
 - HN: the last two monthly threads (2026-11-02).
 - HN inactivity: comment older than 45 days, or deleted from a thread fetched in the run (2026-11-04).

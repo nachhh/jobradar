@@ -61,6 +61,8 @@ def no_http() -> Fetcher:
 
 
 def ingest(engine: Engine, extractors: dict[Source, FakeExtractor], **kwargs: Any) -> pipeline.RunResult:
+    """Run the pipeline over the faked sources only (by default, every source the fakes cover)."""
+    kwargs.setdefault("sources", list(extractors))
     return pipeline.run_ingest(engine, extractors=extractors, make_fetcher=no_http, **kwargs)
 
 
@@ -276,3 +278,18 @@ def test_run_links_the_same_job_across_sources(clean_db: Engine) -> None:
         groups = conn.execute(text("SELECT count(*) FROM current_postings")).scalar_one()
     assert linked == ["remotive"]  # GetOnBoard's copy was seen first (it ran first): canonical
     assert groups == 8  # 9 postings, one job posted twice
+
+
+def test_each_source_has_its_own_fetch_interval(clean_db: Engine) -> None:
+    extractors = fakes() | {
+        Source.JOBICY: FakeExtractor(Source.JOBICY, load("jobicy/data-science.json")["jobs"])
+    }
+    ingest(clean_db, extractors)
+    with clean_db.begin() as conn:  # pretend those extracts finished 2 hours ago
+        conn.execute(update(PipelineRunSource).values(finished_at=func.now() - text("interval '2 hours'")))
+
+    result = ingest(clean_db, extractors)
+
+    # Jobicy's 1-hour interval has passed; Remotive's 6 hours haven't. GetOnBoard and HN have none.
+    assert result.skipped == (Source.REMOTIVE,)
+    assert extractors[Source.JOBICY].calls == 2

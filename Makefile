@@ -27,7 +27,7 @@ migrate: ## Apply database migrations
 health: ## Check the database and pgvector
 	uv run jobradar health
 
-ingest: ## Fetch postings from every source and load them (Remotive at most every 6 h)
+ingest: ## Fetch postings from every source and load them (rate-limited sources are skipped when fetched recently)
 	uv run jobradar ingest
 
 runs: ## Show the most recent pipeline runs and their counts

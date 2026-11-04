@@ -12,8 +12,9 @@ import httpx
 import pytest
 import respx
 
+from jobradar.config import Settings
 from jobradar.ingest.http import Fetcher, make_client
-from jobradar.ingest.sources import getonboard, hn, remotive
+from jobradar.ingest.sources import getonboard, himalayas, hn, jobicy, remotive
 from jobradar.ingest.sources.base import ExtractError, dedupe, make_record, payload_hash
 from jobradar.models import Source
 
@@ -149,3 +150,71 @@ def test_remotive_makes_one_request(respx_mock: respx.MockRouter, fetcher: Fetch
 
     assert [r.src_posting_id for r in records] == ["2084113", "2084250", "2084301"]  # int IDs → str
     assert route.call_count == 1  # the daily limit is 4: never page or retry-by-category
+
+
+# --- Himalayas --------------------------------------------------------------------------------
+
+
+def _mock_himalayas(respx_mock: respx.MockRouter) -> respx.Route:
+    route = respx_mock.get(himalayas.SEARCH_URL, params={"page": "1"}).mock(
+        return_value=httpx.Response(200, json=load("himalayas/search-page-1.json"))
+    )
+    respx_mock.get(himalayas.SEARCH_URL, params={"page": "2"}).mock(
+        return_value=httpx.Response(200, json=load("himalayas/search-page-2.json"))
+    )
+    return route
+
+
+def test_himalayas_pages_and_keeps_only_tech(
+    respx_mock: respx.MockRouter, fetcher: Fetcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(himalayas, "get_settings", lambda: Settings(_env_file=None))  # pyright: ignore[reportCallIssue]
+    route = _mock_himalayas(respx_mock)
+
+    records = himalayas.extract(fetcher)
+
+    # 5 jobs over 2 pages (trimmed from 20 each); the Marketing one and the one with no category
+    # are dropped.
+    titles = [r.payload["title"] for r in records]
+    assert len(titles) == 3 and not any("Paid Media" in t or "Travel" in t for t in titles)
+    assert fetcher.requests_made == 2
+    assert route.calls.last.request.url.params["country"] == "AR"
+    assert "Authorization" not in route.calls.last.request.headers  # no key configured
+
+
+def test_himalayas_sends_the_api_key_as_a_bearer_header(
+    respx_mock: respx.MockRouter, fetcher: Fetcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(_env_file=None, himalayas_api_key="test-key")  # pyright: ignore[reportCallIssue]
+    monkeypatch.setattr(himalayas, "get_settings", lambda: settings)
+    route = _mock_himalayas(respx_mock)
+
+    himalayas.extract(fetcher)
+
+    assert route.calls.last.request.headers["Authorization"] == "Bearer test-key"
+    assert "test-key" not in str(route.calls.last.request.url)  # never in the URL (URLs get logged)
+
+
+# --- Jobicy -----------------------------------------------------------------------------------
+
+
+def test_jobicy_follows_the_cursor_per_industry(respx_mock: respx.MockRouter, fetcher: Fetcher) -> None:
+    page_2 = respx_mock.get(jobicy.URL, params={"industry": "engineering", "cursor": "CURSOR-PAGE-2"}).mock(
+        return_value=httpx.Response(200, json=load("jobicy/engineering-page-2.json"))
+    )
+    # Routes are matched in the order they were added, so the cursor route above wins for page 2.
+    respx_mock.get(jobicy.URL, params={"industry": "engineering"}).mock(
+        return_value=httpx.Response(200, json=load("jobicy/engineering-page-1.json"))
+    )
+    respx_mock.get(jobicy.URL, params={"industry": "data-science"}).mock(
+        return_value=httpx.Response(200, json=load("jobicy/data-science.json"))
+    )
+    respx_mock.get(jobicy.URL, params={"industry": "qa-testing"}).mock(
+        return_value=httpx.Response(200, json=load("jobicy/empty.json"))
+    )
+
+    records = jobicy.extract(fetcher)
+
+    assert [r.src_posting_id for r in records] == ["154514", "149985", "150052", "144856", "158809"]
+    assert page_2.calls.last.request.url.params["geo"] == "latam"  # filters kept on the cursor page
+    assert fetcher.requests_made == 4  # engineering ×2, data-science, qa-testing

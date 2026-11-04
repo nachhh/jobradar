@@ -46,6 +46,8 @@ class Source(StrEnum):
     GETONBOARD = "getonboard"
     REMOTIVE = "remotive"
     HN = "hn"
+    HIMALAYAS = "himalayas"
+    JOBICY = "jobicy"
 
 
 class Trigger(StrEnum):
@@ -71,6 +73,16 @@ class Stage(StrEnum):
 
     EXTRACTED = "extracted"  # raw rows committed, not yet transformed
     TRANSFORMED = "transformed"
+
+
+class SalaryPeriod(StrEnum):
+    """The period a salary amount refers to, as the source states it (no conversion)."""
+
+    HOUR = "hour"
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    YEAR = "year"
 
 
 class Remote(StrEnum):
@@ -203,6 +215,7 @@ class Posting(Base):
     __table_args__ = (
         _one_of("source", Source),
         _one_of("remote", Remote),
+        _one_of("salary_period", SalaryPeriod),
         # The natural key: what makes two rows "the same posting" within a source.
         UniqueConstraint("source", "src_posting_id"),
         CheckConstraint("salary_min <= salary_max", name="salary_range"),
@@ -226,6 +239,10 @@ class Posting(Base):
     seniority: Mapped[str | None] = mapped_column(Text)
     salary_min: Mapped[int | None] = mapped_column(Integer)
     salary_max: Mapped[int | None] = mapped_column(Integer)
+    # Amounts are stored as the source gives them: salary_currency (ISO code, e.g. "USD") and
+    # salary_period say what they mean. Comparing across units is a query-time concern.
+    salary_currency: Mapped[str | None] = mapped_column(Text)
+    salary_period: Mapped[str | None] = mapped_column(Text)
     salary_text: Mapped[str | None] = mapped_column(Text)  # the original wording, when there is one
     posted_at: Mapped[datetime | None] = mapped_column(_TIMESTAMPTZ)
     description: Mapped[str] = mapped_column(Text)  # plain text; HTML stripped by the parser

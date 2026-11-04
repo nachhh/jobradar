@@ -13,7 +13,7 @@ from typing import Self
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from jobradar.ingest.text import dedup_key
-from jobradar.models import Remote, Source
+from jobradar.models import Remote, SalaryPeriod, Source
 
 
 class PostingIn(BaseModel):
@@ -31,10 +31,13 @@ class PostingIn(BaseModel):
     location_text: str | None = None
     remote: Remote = Remote.UNKNOWN
     seniority: str | None = None
-    # ge=0: "greater or equal to 0". GetOnBoard salaries are USD per month; the other sources only
-    # have free-text salaries (salary_text), parsed by the LLM in Phase 2.
+    # ge=0: "greater or equal to 0". Amounts as the source gives them; salary_currency and
+    # salary_period say what they mean. Free-text salaries (Remotive, HN) go to salary_text instead,
+    # for Phase 2's LLM.
     salary_min: int | None = Field(default=None, ge=0)
     salary_max: int | None = Field(default=None, ge=0)
+    salary_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")  # ISO 4217, e.g. "USD"
+    salary_period: SalaryPeriod | None = None
     salary_text: str | None = None
     # AwareDatetime rejects a datetime without a time zone: "10:15" alone is ambiguous, and the
     # column is TIMESTAMPTZ. Parsers attach UTC when the source omits it.
@@ -79,6 +82,33 @@ class PostingIn(BaseModel):
             "content_hash": self.content_hash(),
             "dedup_key": dedup_key(self.company, self.title),
         }
+
+
+# How sources name salary periods → our SalaryPeriod. An unknown word raises ValueError, so the
+# posting is rejected with the value in the reason instead of being stored with a wrong unit.
+_PERIOD_WORDS = {
+    "hour": SalaryPeriod.HOUR,
+    "hourly": SalaryPeriod.HOUR,
+    "day": SalaryPeriod.DAY,
+    "daily": SalaryPeriod.DAY,
+    "week": SalaryPeriod.WEEK,
+    "weekly": SalaryPeriod.WEEK,
+    "month": SalaryPeriod.MONTH,
+    "monthly": SalaryPeriod.MONTH,
+    "year": SalaryPeriod.YEAR,
+    "yearly": SalaryPeriod.YEAR,
+    "annual": SalaryPeriod.YEAR,
+    "annually": SalaryPeriod.YEAR,
+}
+
+
+def salary_period(word: str | None) -> SalaryPeriod | None:
+    if not word:
+        return None
+    try:
+        return _PERIOD_WORDS[word.strip().lower()]
+    except KeyError:
+        raise ValueError(f"unknown salary period {word!r}") from None
 
 
 def utc_from_timestamp(seconds: int | float) -> datetime:

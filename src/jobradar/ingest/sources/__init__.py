@@ -10,7 +10,7 @@ knowing any of them, and adding a source is one module plus a line in each regis
 from collections.abc import Callable
 
 from jobradar.ingest.posting import PostingIn
-from jobradar.ingest.sources import getonboard, hn, remotive
+from jobradar.ingest.sources import getonboard, himalayas, hn, jobicy, remotive
 from jobradar.ingest.sources.base import Extractor, Payload
 from jobradar.models import Source
 
@@ -20,10 +20,14 @@ EXTRACTORS: dict[Source, Extractor] = {
     Source.GETONBOARD: getonboard.extract,
     Source.REMOTIVE: remotive.extract,
     Source.HN: hn.extract,
+    Source.HIMALAYAS: himalayas.extract,
+    Source.JOBICY: jobicy.extract,
 }
 
 PARSERS: dict[Source, Parser] = {
     Source.GETONBOARD: getonboard.parse,
     Source.REMOTIVE: remotive.parse,
     Source.HN: hn.parse,
+    Source.HIMALAYAS: himalayas.parse,
+    Source.JOBICY: jobicy.parse,
 }

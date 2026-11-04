@@ -15,7 +15,7 @@ from jobradar.ingest.http import Fetcher
 from jobradar.ingest.posting import PostingIn, utc_from_timestamp
 from jobradar.ingest.sources.base import ExtractError, Payload, RawRecord, dedupe, make_record
 from jobradar.ingest.text import html_to_text
-from jobradar.models import Remote, Source
+from jobradar.models import Remote, SalaryPeriod, Source
 
 BASE_URL = "https://www.getonbrd.com/api/v0"
 
@@ -93,6 +93,7 @@ def parse(payload: Payload) -> PostingIn:
     with the reason, which is how an API change becomes visible.
     """
     attrs = payload["attributes"]
+    has_salary = attrs.get("min_salary") is not None or attrs.get("max_salary") is not None
     return PostingIn(
         source=Source.GETONBOARD,
         src_posting_id=payload["id"],
@@ -104,6 +105,9 @@ def parse(payload: Payload) -> PostingIn:
         seniority=_related(attrs, "seniority"),
         salary_min=attrs.get("min_salary"),
         salary_max=attrs.get("max_salary"),
+        # GetOnBoard publishes salaries in USD per month; the unit is only stated when there is one.
+        salary_currency="USD" if has_salary else None,
+        salary_period=SalaryPeriod.MONTH if has_salary else None,
         posted_at=utc_from_timestamp(attrs["published_at"]) if attrs.get("published_at") else None,
         description=_description(attrs),
         tags=tuple(tag["attributes"]["name"] for tag in attrs.get("tags", {}).get("data", [])),

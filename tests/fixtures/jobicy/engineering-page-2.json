@@ -1,0 +1,37 @@
+{
+  "apiVersion": "2.2.19",
+  "documentationUrl": "https://jobi.cy/apidocs",
+  "friendlyNotice": "Thanks for using Jobicy API! Please ensure Jobicy is clearly credited with a direct link to the source, and all application buttons redirect to the original job URL provided in this feed. That’s all! You might be building something amazing, we wish you the best of luck!",
+  "jobCount": 1,
+  "lastUpdate": "2026-11-04T03:37:22+00:00",
+  "nextCursor": null,
+  "hasMore": false,
+  "appliedFilters": {
+    "count": 100,
+    "geo": "latam",
+    "industry": "engineering"
+  },
+  "statusCode": 200,
+  "success": true,
+  "jobs": [
+    {
+      "id": 150052,
+      "url": "https://jobicy.com/jobs/150052-1775-rpg-as400-jd-edwards-enterpriseone-developer",
+      "jobSlug": "150052-1775-rpg-as400-jd-edwards-enterpriseone-developer",
+      "jobTitle": "1775 RPG/AS400 & JD Edwards EnterpriseOne Developer",
+      "companyName": "Softgic",
+      "companyLogo": "https://jobicy.com/data/server-nyc0409/galaxy/mercury/2025/06/80b93c85-221.jpeg",
+      "jobIndustry": [
+        "Software Engineering"
+      ],
+      "jobType": [
+        "Full-Time"
+      ],
+      "jobGeo": "Anywhere",
+      "jobLevel": "Midweight",
+      "jobExcerpt": "This is a remote position. We are looking for a professional with hands-on experience developing in RPG/RPGLE on IBM AS400/iSeries, as well as proven experience with JD Edwards EnterpriseOne development tools. We are not looking for an infrastructure administrator, a JD Edwards functional consultant, or an AS400 developer without JD Edwards experience. The ideal candidate&hellip;",
+      "jobDescription": "<p> This is a remote position. </p>\n<p> We are looking for a professional with hands-on experience developing in RPG/RPGLE on IBM AS400/iSeries, as well as proven experience with JD Edwards EnterpriseOne development tools. </p>\n<p> We are not looking for an infrastructure administrator, a JD Edwards functional consultant, or an AS400 developer without JD Edwards experience. The ideal candidate must be able to work technically across both platforms, troubleshoot production issues, modify existing customizations, and participate in system integrations. </p>\n<p>\n<b> Responsibilities </b>\n</p>\n<ul>\n<li>\n<p> Develop, modify, debug, and maintain RPG, RPGLE, and CL programs on IBM AS400/iSeries. </p>\n</li>\n<li>\n<p> Analyze and resolve technical issues, performance problems, and production incidents. </p>\n</li>\n<li>\n<p> Develop, customize, and support JD Edwards EnterpriseOne solutions. </p>\n</li>\n<li>\n<p> Work with JD Edwards modules such as Financials, Inventory, Distribution, Procurement, and Manufacturing. </p>\n</li>\n<li>\n<p> Develop and modify JD Edwards components, including: </p>\n<ul>\n<li>\n<p> Business Functions </p>\n</li>\n<li>\n<p> UBEs (Batch Reports) </p>\n</li>\n<li>\n<p> Named Event Rules (NERs) </p>\n</li>\n<li>\n<p> Table Conversions </p>\n</li>\n<li>\n<p> Business Views </p>\n</li>\n</ul>\n</li>\n<li>\n<p> Use Object Management Workbench (OMW) to manage development objects and lifecycle processes. </p>\n</li>\n<li>\n<p> Design and maintain SQL queries, stored procedures, and data processes using DB2. </p>\n</li>\n<li>\n<p> Implement integrations between JD Edwards and external applications through APIs, EDI, flat files, and other data exchange mechanisms. </p>\n</li>\n<li>\n<p> Provide technical and functional support to internal users. </p>\n</li>\n<li>\n<p> Participate in JD Edwards upgrades, ESU installations, patch deployments, and system enhancements. </p>\n</li>\n<li>\n<p> Prepare technical documentation, development specifications, and support procedures. </p>\n</li>\n<li>\n<p> Maintain source code and technical objects following development best practices and coding standards. </p>\n</li>\n<li>\n<p> Collaborate with functional teams, infrastructure teams, and business users to identify, analyze, and resolve operational needs. </p>\n</li>\n</ul>\n<div>\n</div> <h2> Requisitos </h2>\n<p>\n<b> Required Qualifications </b>\n</p>\n<ul>\n<li>\n<p> Minimum of 3 years of professional experience developing on IBM AS400/iSeries. </p>\n</li>\n<li>\n<p> Proven hands-on experience with: </p>\n<ul>\n<li>\n<p> RPG </p>\n</li>\n<li>\n<p> RPGLE </p>\n</li>\n<li>\n<p> CL </p>\n</li>\n<li>\n<p> IBM AS400/iSeries </p>\n</li>\n</ul>\n</li>\n<li>\n<p> Practical experience developing, supporting, or customizing JD Edwards EnterpriseOne. </p>\n</li>\n<li>\n<p> Strong knowledge of JD Edwards development tools, including: </p>\n<ul>\n<li>\n<p> Object Management Workbench (OMW) </p>\n</li>\n<li>\n<p> Business View Design </p>\n</li>\n<li>\n<p> UBE Design </p>\n</li>\n<li>\n<p> Business Functions </p>\n</li>\n<li>\n<p> Named Event Rules (NERs) </p>\n</li>\n<li>\n<p> Table Conversions </p>\n</li>\n</ul>\n</li>\n<li>\n<p> Experience working with SQL and DB2. </p>\n</li>\n<li>\n<p> Experience troubleshooting production issues and supporting live enterprise systems. </p>\n</li>\n<li>\n<p> Ability to analyze technical requirements and translate them into effective business solutions. </p>\n</li>\n<li>\n<p> English proficiency at a minimum B2 level, with the ability to participate in meetings, understand technical documentation, and communicate effectively with international teams. </p>\n</li>\n</ul>\n<div>\n</div>",
+      "pubDate": "2026-11-04T03:35:31+00:00"
+    }
+  ]
+}

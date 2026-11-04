@@ -7,9 +7,10 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from jobradar.ingest.sources import getonboard, hn, remotive
+from jobradar.ingest.posting import salary_period
+from jobradar.ingest.sources import getonboard, himalayas, hn, jobicy, remotive
 from jobradar.ingest.text import dedup_key, html_to_text, normalize_name
-from jobradar.models import Remote, Source
+from jobradar.models import Remote, SalaryPeriod, Source
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -147,3 +148,78 @@ def test_content_hash_changes_with_content_only() -> None:
 
     assert remotive.parse(job).content_hash() == same.content_hash()
     assert remotive.parse(job).content_hash() != edited.content_hash()
+
+
+# --- salary units -----------------------------------------------------------------------------
+
+
+def test_getonboard_salary_is_usd_per_month() -> None:
+    with_salary = getonboard.parse(getonboard_job("founding-ai-engineer-sapling-remote"))
+    without = getonboard.parse(getonboard_job("ia-developer-improving-remote"))
+    assert (with_salary.salary_currency, with_salary.salary_period) == ("USD", SalaryPeriod.MONTH)
+    assert (without.salary_currency, without.salary_period) == (None, None)
+
+
+@pytest.mark.parametrize(
+    ("word", "period"),
+    [("hourly", SalaryPeriod.HOUR), ("annual", SalaryPeriod.YEAR), ("Yearly", SalaryPeriod.YEAR)],
+)
+def test_salary_period_words(word: str, period: SalaryPeriod) -> None:
+    assert salary_period(word) == period
+
+
+def test_unknown_salary_period_is_an_error() -> None:
+    with pytest.raises(ValueError, match="unknown salary period 'fortnightly'"):
+        salary_period("fortnightly")
+
+
+# --- Himalayas --------------------------------------------------------------------------------
+
+
+def himalayas_jobs() -> list[dict[str, Any]]:
+    return load("himalayas/search-page-1.json")["jobs"] + load("himalayas/search-page-2.json")["jobs"]
+
+
+def test_himalayas_maps_fields() -> None:
+    web_dev = himalayas.parse(himalayas_jobs()[1])  # worldwide, USD 20–30 per hour
+    assert web_dev.url.startswith("https://himalayas.app/companies/")
+    assert (web_dev.company, web_dev.remote, web_dev.location_text) == (
+        "SimpleTiger",
+        Remote.REMOTE,
+        "Worldwide",
+    )
+    assert (web_dev.salary_min, web_dev.salary_max) == (20, 30)
+    assert (web_dev.salary_currency, web_dev.salary_period) == ("USD", SalaryPeriod.HOUR)
+    assert web_dev.seniority == "Mid-level"
+    assert "Remote Web Developer" in web_dev.tags  # slug hyphens turned into spaces
+
+
+def test_himalayas_country_list_and_missing_salary() -> None:
+    architect = himalayas.parse(himalayas_jobs()[3])  # open to Argentina, Colombia, Mexico
+    assert architect.location_text == "Argentina, Colombia, Mexico"
+    # The payload says "annual" even without amounts: no amounts → no unit either.
+    assert (architect.salary_min, architect.salary_period) == (None, None)
+
+
+# --- Jobicy -----------------------------------------------------------------------------------
+
+
+def test_jobicy_maps_fields() -> None:
+    salaried, unsalaried = load("jobicy/data-science.json")["jobs"]
+    posting = jobicy.parse(salaried)
+    assert (posting.salary_min, posting.salary_currency, posting.salary_period) == (
+        140000,
+        "USD",
+        SalaryPeriod.YEAR,
+    )
+    assert posting.remote == Remote.REMOTE
+    assert posting.url.startswith("https://jobicy.com/jobs/")
+
+    bare = jobicy.parse(unsalaried)  # Jobicy omits the salary keys entirely here
+    assert (bare.salary_min, bare.salary_currency, bare.salary_period) == (None, None, None)
+
+
+def test_jobicy_level_any_means_unknown() -> None:
+    job = load("jobicy/engineering-page-1.json")["jobs"][0]
+    assert job["jobLevel"] == "Any"
+    assert jobicy.parse(job).seniority is None

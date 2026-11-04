@@ -79,12 +79,18 @@ class Fetcher:
         self._last_request_at: float | None = None
         self.requests_made = 0  # every attempt, retries included; handy in logs and tests
 
-    def get_json(self, url: str, params: Params | None = None) -> Any:
-        """GET `url` and return the decoded JSON body. Raises once retries are exhausted."""
+    def get_json(
+        self, url: str, params: Params | None = None, headers: Mapping[str, str] | None = None
+    ) -> Any:
+        """GET `url` and return the decoded JSON body. Raises once retries are exhausted.
+
+        `headers` are added to this request only (e.g. an Authorization header). They're never
+        logged; the warnings below log the URL, which is why API keys go in headers, not URLs.
+        """
         for attempt in range(1, self.max_attempts + 1):
             self._wait_for_turn()
             try:
-                response = self.client.get(url, params=params)
+                response = self.client.get(url, params=params, headers=headers)
             except httpx.TransportError as exc:
                 # TransportError covers timeouts, refused connections and dropped connections:
                 # the request never got a response, so trying again is reasonable.

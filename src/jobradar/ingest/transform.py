@@ -43,6 +43,8 @@ CONTENT_COLUMNS = (
     "seniority",
     "salary_min",
     "salary_max",
+    "salary_currency",
+    "salary_period",
     "salary_text",
     "posted_at",
     "description",
