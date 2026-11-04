@@ -118,6 +118,20 @@ LLM extraction and embeddings (Phase 2), search, a UI, any paid source, LinkedIn
 4. `make check` passes, including the integration tests above, locally and in CI.
 5. At least one cross-source duplicate is linked on real data, or the report explains why none exist.
 
+## Acceptance report (2026-11-04)
+
+Run against the local database with real data, on branch `jobradar-nachhh-p1-postings-ingestion`.
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | `jobradar ingest` loads all three sources; `jobradar runs` shows the counts | ✅ Run `1451aadd`, started with the README's crontab command in a cron-like environment (empty environment, minimal `PATH`): GetOnBoard 602, Remotive 10, HN 436 fetched, all `succeeded`. First loads: 602 + 436 inserted (run `07e1dd15`), 10 inserted (run `995b1383`). |
+| 2 | An immediate re-run inserts nothing and reports everything unchanged | ✅ Run `09a0961c`: 602 + 436 unchanged, 0 new raw versions; run `1451aadd`: all three sources, 1,048 unchanged. |
+| 3 | Killing a run mid-load leaves the database as before | ✅ Run `12c24bd3` killed with `kill -9` during GetOnBoard: raw and clean row counts and `last_seen_at` unchanged; the ledger kept `running` for the run and the source, with no stage; the advisory lock was released by Postgres when the connection dropped. `ingest --resume` then finished the run (`succeeded`). |
+| 4 | `make check` passes locally and in CI | ✅ locally (81 tests). CI: pending the branch's first push. |
+| 5 | A cross-source duplicate linked on real data, or why none | No candidate pair exists yet, so none is linked. HN postings have no company until Phase 2 extracts it (decision D1), and Remotive's free API returns only 10 jobs, none from a company that also posts on GetOnBoard. Linking is covered by tests (exact, fuzzy, transitive, group merge). Real overlap is expected with step s7 (Himalayas: 114k jobs); thresholds are tuned then. One known near-miss to revisit: "senior data engineer" vs "senior data engineer remote" scores 0.75, below the 0.8 title threshold. |
+
+Data quality on real data: 0 records rejected out of 1,048.
+
 ## Steps
 
 The order the phase is built in, one reviewable piece at a time. Steps are about building the code; they are not the pipeline's *stages* (extract-load, transform, link), which describe what every run does. Commits name their step: `[jobradar][p1][s<N>] <description>`.
@@ -128,8 +142,8 @@ The order the phase is built in, one reviewable piece at a time. Steps are about
 | s2 | HTTP `Fetcher` (retries, backoff, polite interval) and the three extractors, with fixtures | Done (`bd98296`) |
 | s3 | `PostingIn`, a parser per source, and the transform (upsert, quarantine, closed postings) | Done (`a04d28c`) |
 | s4 | Pipeline: `COPY` load, run ledger, advisory lock, checks, `--resume`, `--force`, `transform --rebuild`, CLI | Done (`0751cfc`) |
-| s5 | Cross-source linking (`pg_trgm`, union-find over candidate pairs) and the `current_postings` view | Done |
-| s6 | Scheduling (documented `crontab` line) and the acceptance run on real data | To do |
+| s5 | Cross-source linking (`pg_trgm`, union-find over candidate pairs) and the `current_postings` view | Done (`533d28c`) |
+| s6 | Scheduling (documented `crontab` line) and the acceptance run on real data | Done |
 | s7 | Two more sources, Himalayas and Jobicy: extractor, parser and fixtures each; migration adding them to the `source` CHECK constraints; optional `HIMALAYAS_API_KEY` | To do |
 
 Steps s1 to s3 were committed before this convention, as `[jobradar][p1] …`.
