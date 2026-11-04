@@ -42,6 +42,11 @@ select = ["E", "F", "I", "UP", "B", "S"]
 
 [tool.pyright]
 pythonVersion = "3.12"
+# Resolve imports from the project's .venv (created by `uv sync`). Pylance, VS Code's Python
+# language server, reads this section too, so the editor finds installed packages without
+# depending on which interpreter is selected in the UI.
+venvPath = "."
+venv = ".venv"
 include = ["src", "tests", "migrations"]
 typeCheckingMode = "standard"
 
