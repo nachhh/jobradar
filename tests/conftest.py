@@ -53,7 +53,7 @@ def db_conn(db_engine: Engine) -> Iterator[Connection]:
 
 @pytest.fixture
 def clean_db(db_engine: Engine) -> Iterator[Engine]:
-    """The test engine with empty ingestion tables, emptied again afterwards.
+    """The test engine with empty tables, emptied again afterwards.
 
     For code that opens and commits its own transactions (the pipeline), which `db_conn`'s
     rollback can't contain. TRUNCATE empties tables at once; CASCADE covers foreign keys.
@@ -63,7 +63,8 @@ def clean_db(db_engine: Engine) -> Iterator[Engine]:
         with db_engine.begin() as conn:
             conn.execute(
                 text(
-                    "TRUNCATE pipeline_runs, pipeline_run_sources, raw_postings, postings, rejected_postings "
+                    "TRUNCATE pipeline_runs, pipeline_run_sources, raw_postings, postings, "
+                    "rejected_postings, posting_enrichments, llm_calls, posting_chunks "
                     "RESTART IDENTITY CASCADE"
                 )
             )

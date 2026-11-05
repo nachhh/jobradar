@@ -32,7 +32,16 @@ from jobradar.ingest.link import link_duplicates
 from jobradar.ingest.sources import EXTRACTORS
 from jobradar.ingest.sources.base import Extractor, RawRecord
 from jobradar.ingest.transform import TransformCounts, transform_source
-from jobradar.models import PipelineRun, PipelineRunSource, RunStatus, Source, SourceStatus, Stage, Trigger
+from jobradar.models import (
+    Pipeline,
+    PipelineRun,
+    PipelineRunSource,
+    RunStatus,
+    Source,
+    SourceStatus,
+    Stage,
+    Trigger,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +108,7 @@ def run_ingest(
         if not to_run:
             raise NothingToRunError(f"all sources skipped: {', '.join(skipped)}")
         params = {"sources": list(to_run), "skipped": list(skipped), "force": force}
-        run_id = _start_run(engine, "ingest", trigger, params)
+        run_id = _start_run(engine, Pipeline.INGEST, trigger, params)
         logger.info("run %s started: %s", run_id, ", ".join(to_run))
         for source in to_run:
             _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
@@ -147,7 +156,7 @@ def rebuild(engine: Engine, sources: Sequence[Source] = tuple(Source)) -> RunRes
     parser fix exactly the affected postings show up as `updated` in the ledger.
     """
     with _ingest_lock(engine):
-        run_id = _start_run(engine, "rebuild", Trigger.MANUAL, {"sources": list(sources)})
+        run_id = _start_run(engine, Pipeline.REBUILD, Trigger.MANUAL, {"sources": list(sources)})
         for source in sources:
             _start_source(engine, run_id, source)
             try:
@@ -344,7 +353,7 @@ def _ingest_lock(engine: Engine) -> Iterator[None]:
 # --- Ledger writes ----------------------------------------------------------------------------
 
 
-def _start_run(engine: Engine, pipeline: str, trigger: Trigger, params: dict[str, Any]) -> uuid.UUID:
+def _start_run(engine: Engine, pipeline: Pipeline, trigger: Trigger, params: dict[str, Any]) -> uuid.UUID:
     stmt = (
         pg_insert(PipelineRun)
         .values(pipeline=pipeline, trigger=trigger, params=params, git_sha=_git_sha())
@@ -441,14 +450,14 @@ def _resumable_run(engine: Engine, run_id: uuid.UUID) -> Row[Any]:
     if not rows:
         raise ResumeError(f"no run {run_id}")
     run = rows[0]
-    if run.pipeline != "ingest":
+    if run.pipeline != Pipeline.INGEST:
         raise ResumeError(f"run {run_id} is a {run.pipeline} run, not an ingest run")
     if run.status == RunStatus.SUCCEEDED:
         raise ResumeError(f"run {run_id} already succeeded")
     latest = _query(
         engine,
         select(PipelineRun.run_id)
-        .where(PipelineRun.pipeline == "ingest")
+        .where(PipelineRun.pipeline == Pipeline.INGEST)
         .order_by(PipelineRun.started_at.desc())
         .limit(1),
     )[0][0]

@@ -2,6 +2,8 @@
 
 - `runs`: the run ledger (pipeline_runs, pipeline_run_sources).
 - `postings`: the ingestion layers (raw_postings, postings, rejected_postings).
+- `enrichment`: LLM-extracted fields and the log of LLM calls (posting_enrichments, llm_calls).
+- `retrieval`: chunks with their keyword index and embedding (posting_chunks).
 
 Concepts:
 - SQLAlchemy 2 "typed" mappings: `Mapped[str]` declares the Python type of an attribute and,
@@ -21,19 +23,53 @@ Alembic (migrations/env.py) relies on that, and the re-exports below let the res
 keep writing `from jobradar.models import Posting` without knowing which module holds it.
 """
 
+from jobradar.models.enrichment import (
+    EmploymentType,
+    EnrichmentStatus,
+    LatamHiring,
+    LlmCall,
+    LlmCallStatus,
+    LlmPurpose,
+    PostingEnrichment,
+    RoleFamily,
+    SalaryBasis,
+    Seniority,
+)
 from jobradar.models.postings import Posting, RawPosting, RejectedPosting, Remote, SalaryPeriod, Source
-from jobradar.models.runs import PipelineRun, PipelineRunSource, RunStatus, SourceStatus, Stage, Trigger
+from jobradar.models.retrieval import EMBEDDING_DIM, PostingChunk
+from jobradar.models.runs import (
+    Pipeline,
+    PipelineRun,
+    PipelineRunSource,
+    RunStatus,
+    SourceStatus,
+    Stage,
+    Trigger,
+)
 
 # __all__ lists the public names: it tells linters these imports are re-exports, not unused.
 __all__ = [
+    "EMBEDDING_DIM",
+    "EmploymentType",
+    "EnrichmentStatus",
+    "LatamHiring",
+    "LlmCall",
+    "LlmCallStatus",
+    "LlmPurpose",
+    "Pipeline",
     "PipelineRun",
     "PipelineRunSource",
     "Posting",
+    "PostingChunk",
+    "PostingEnrichment",
     "RawPosting",
     "RejectedPosting",
     "Remote",
+    "RoleFamily",
     "RunStatus",
+    "SalaryBasis",
     "SalaryPeriod",
+    "Seniority",
     "Source",
     "SourceStatus",
     "Stage",

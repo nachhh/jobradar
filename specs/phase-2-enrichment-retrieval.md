@@ -222,8 +222,8 @@ Commits name their step: `[jobradar][p2][s<N>] <description>`. Diagrams and ADRs
 
 | Step | Scope | Status |
 |---|---|---|
-| s0 | Phase setup: pyright/Pylance points at `.venv` (`8c2f946`); architecture, data-flow, ERD and state-machine diagrams for Phase 1 (`c2c81a4`); this spec | Done |
-| s1 | Split `models.py` into a `models/` package (its own commit, no behaviour change); migration `0005` (three tables, `unaccent`, `pipeline_runs` changes), the `enriched_postings` view, ORM models, schema tests; ERD | Not started |
+| s0 | Phase setup: pyright/Pylance points at `.venv` (`8c2f946`); architecture, data-flow, ERD and state-machine diagrams for Phase 1 (`c2c81a4`); this spec (`b54f460`) | Done |
+| s1 | Split `models.py` into a `models/` package (its own commit, no behaviour change: `0789713`); migration `0005` (three tables, `unaccent`, a `pipeline` CHECK on `pipeline_runs`), the `enriched_postings` view, ORM models, schema tests; ERD | Done |
 | s2 | LLM layer: provider interface, Claude, Gemini and fake adapters, rate limiter, price table, `llm_calls` logging; `EnrichmentOut`, prompt, grounding check; ADR-0003 (provider and structured outputs) | Not started |
 | s3 | Short introduction to evals. Enrich pipeline and CLI (`enrich`, `--dry-run`, `--limit`); a 50-posting trial run and the owner's spot check; then the full backfill | Not started |
 | s4 | HN linking through the enrichment's `dedup_key`; re-link after enrich | Not started |
@@ -240,3 +240,4 @@ Commits name their step: `[jobradar][p2][s<N>] <description>`. Diagrams and ADRs
 - Enrichment calls run on threads, not `asyncio` (2026-11-05).
 - No stored run counts for enrich and index; derived from `llm_calls` and `last_run_id` (2026-11-05).
 - `salary_basis` (gross or net) extracted now. **Tech debt:** salaries in different currencies and periods aren't converted to one comparable figure (2026-11-05).
+- **Later idea:** extract benefits (paid time off, paid vacations, bonus, equipment) as filter tags, for searches like "match my resume, but only companies that offer PTO". It would be a new `EnrichmentOut` field and a `PROMPT_VERSION` bump. GetOnBoard already sends structured `perks` and `benefits` fields (kept in `raw_postings`, not parsed yet). Not before the UI can take such filters (2026-11-05).

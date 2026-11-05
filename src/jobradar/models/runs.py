@@ -21,6 +21,15 @@ from jobradar.models.postings import Source
 # columns and compared with values read back, while typos become attribute errors, not bad data.
 
 
+class Pipeline(StrEnum):
+    """Which pipeline a run belongs to; every pipeline records its runs in the same ledger."""
+
+    INGEST = "ingest"  # Phase 1: extract, load, transform, link
+    REBUILD = "rebuild"  # Phase 1: postings rebuilt from raw_postings
+    ENRICH = "enrich"  # Phase 2: LLM fields for stale postings
+    INDEX = "index"  # Phase 2: chunks and embeddings for stale postings
+
+
 class Trigger(StrEnum):
     MANUAL = "manual"
     SCHEDULED = "scheduled"
@@ -54,6 +63,7 @@ class PipelineRun(Base):
 
     __tablename__ = "pipeline_runs"
     __table_args__ = (
+        one_of("pipeline", Pipeline),
         one_of("trigger", Trigger),
         one_of("status", RunStatus),
     )
@@ -63,7 +73,7 @@ class PipelineRun(Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
-    pipeline: Mapped[str] = mapped_column(Text)  # "ingest" for now; later pipelines reuse the ledger
+    pipeline: Mapped[str] = mapped_column(Text)
     trigger: Mapped[str] = mapped_column(Text)
     # JSONB = binary JSON: validated on write, indexable, and queryable with operators like ->>.
     params: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
