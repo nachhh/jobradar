@@ -3,7 +3,7 @@
 Concepts:
 - The *engine* owns a pool of connections to Postgres. Create it once per process and reuse it;
   opening a fresh connection per query is slow (TCP + auth handshake each time).
-- *Base* is the parent class of every ORM model (see models.py). Alembic compares
+- *Base* is the parent class of every ORM model (see the models/ package). Alembic compares
   Base.metadata with the live database to autogenerate migrations.
 """
 

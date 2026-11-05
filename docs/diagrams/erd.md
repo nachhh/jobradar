@@ -96,4 +96,4 @@ erDiagram
 - **Allowed values** (sources, statuses, stages, remote, salary period) are `TEXT` columns with `CHECK` constraints, not Postgres `ENUM` types.
 - **View `current_postings`** (not drawn): `postings` columns plus `group_id`, one row per job group, keeping the canonical if active, else the oldest active copy.
 
-Code: [models.py](../../src/jobradar/models.py), [migrations/versions/](../../migrations/versions/).
+Code: [models/](../../src/jobradar/models/), [migrations/versions/](../../migrations/versions/).
