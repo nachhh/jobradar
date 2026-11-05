@@ -2,7 +2,7 @@
 
 Job-market intelligence built like a data platform: it ingests job postings from public APIs into Postgres, enriches them with an LLM, indexes them for hybrid search, and runs a LangGraph agent that scores fit against a resume, finds skill gaps and drafts tailored resume bullets, with a human approving each step.
 
-> **Status:** Phase 1 (ingestion). See the [project overview](specs/00-overview.md) for the phases and the target architecture.
+> **Status:** Phase 2 (enrichment and retrieval); Phase 1 (ingestion) is done. See the [project overview](specs/00-overview.md) for the phases and the target architecture.
 
 ## Stack
 

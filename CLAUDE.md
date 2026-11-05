@@ -7,7 +7,7 @@ Working rules for AI coding agents in this repository.
 JobRadar: ingestion, LLM enrichment, retrieval and a LangGraph agent over public job postings. It is also a learning project: the owner reviews every change to understand it.
 
 - Overview and phases: [specs/00-overview.md](specs/00-overview.md)
-- Current phase spec: [specs/phase-1-ingestion.md](specs/phase-1-ingestion.md) (Phase 0 is done)
+- Current phase spec: [specs/phase-2-enrichment-retrieval.md](specs/phase-2-enrichment-retrieval.md) (Phases 0 and 1 are done)
 - Decisions: [docs/adr/](docs/adr/)
 
 ## Rules
