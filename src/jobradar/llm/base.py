@@ -26,10 +26,19 @@ from jobradar.models import LlmCallStatus
 
 @dataclass(frozen=True)
 class Usage:
-    """Tokens a call consumed. output_tokens includes any "thinking" tokens: they're billed as output."""
+    """Tokens a call consumed, split the way providers bill them.
+
+    - input_tokens: input read at the full price (not from the prompt cache).
+    - output_tokens: the answer, including any "thinking" tokens (billed as output).
+    - cache_write_tokens / cache_read_tokens: input written to / read from the prompt cache. The
+      instructions and schema are the same for every posting, so the provider stores them after
+      the first call and later calls read them at a fraction of the price.
+    """
 
     input_tokens: int
     output_tokens: int
+    cache_write_tokens: int = 0
+    cache_read_tokens: int = 0
 
 
 @dataclass(frozen=True)

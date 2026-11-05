@@ -222,6 +222,9 @@ class LlmCall(Base):
     # NULL when the call failed before the provider reported usage (e.g. a network error).
     input_tokens: Mapped[int | None] = mapped_column(Integer)
     output_tokens: Mapped[int | None] = mapped_column(Integer)
+    # Input served through the prompt cache, billed apart from input_tokens (see llm/base.py, Usage).
+    cache_write_tokens: Mapped[int | None] = mapped_column(Integer)
+    cache_read_tokens: Mapped[int | None] = mapped_column(Integer)
     # NUMERIC (exact decimal), not float: money summed over thousands of calls must not drift.
     # (10, 6) = up to 10 digits, 6 after the point: a single call costs fractions of a cent.
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 6))

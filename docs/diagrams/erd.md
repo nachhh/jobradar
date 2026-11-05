@@ -1,6 +1,6 @@
 # Entity-relationship diagram
 
-The schema after migration `0005`: ingestion (Phase 1) plus enrichment and retrieval (Phase 2). Types are Postgres types, with brackets and parentheses spelled out because Mermaid doesn't accept them in type names: `text_array` is `text[]`, `vector_768` is `vector(768)`, `numeric_10_6` is `numeric(10,6)`.
+The schema after migration `0006`: ingestion (Phase 1) plus enrichment and retrieval (Phase 2). Types are Postgres types, with brackets and parentheses spelled out because Mermaid doesn't accept them in type names: `text_array` is `text[]`, `vector_768` is `vector(768)`, `numeric_10_6` is `numeric(10,6)`.
 
 ```mermaid
 erDiagram
@@ -137,6 +137,8 @@ erDiagram
         text status "ok, invalid_output, ungrounded, refused, error"
         int input_tokens
         int output_tokens
+        int cache_write_tokens "prompt cache, billed apart"
+        int cache_read_tokens
         numeric_10_6 cost_usd
         int latency_ms
         text error

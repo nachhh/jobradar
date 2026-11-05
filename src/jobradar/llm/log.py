@@ -55,6 +55,8 @@ def record_call(
             status=status or default_status,
             input_tokens=usage.input_tokens if usage else None,
             output_tokens=usage.output_tokens if usage else None,
+            cache_write_tokens=usage.cache_write_tokens if usage else None,
+            cache_read_tokens=usage.cache_read_tokens if usage else None,
             cost_usd=cost_usd(outcome.model, usage),
             latency_ms=outcome.latency_ms,
             error=error,

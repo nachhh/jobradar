@@ -58,7 +58,12 @@ def claude_message(text: str, stop_reason: str = "end_turn") -> dict[str, Any]:
         ],
         "stop_reason": stop_reason,
         "stop_sequence": None,
-        "usage": {"input_tokens": 1200, "output_tokens": 300},
+        "usage": {
+            "input_tokens": 1200,
+            "output_tokens": 300,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 3300,
+        },
     }
 
 
@@ -81,10 +86,11 @@ def test_claude_sends_schema_and_low_effort() -> None:
     result = claude_provider(200, claude_message(VALID), sent).extract("Rules.", "A posting.", Answer)
 
     assert result.parsed == Answer(company="Acme", years=5)
-    assert result.usage == Usage(input_tokens=1200, output_tokens=300)
+    assert result.usage == Usage(input_tokens=1200, output_tokens=300, cache_read_tokens=3300)
     request = sent[0]
     assert request["model"] == "claude-haiku-5-5"
-    assert request["system"] == "Rules."
+    # The instructions are marked for caching: the prefix up to here is reused by later calls.
+    assert request["system"] == [{"type": "text", "text": "Rules.", "cache_control": {"type": "ephemeral"}}]
     assert request["messages"] == [{"role": "user", "content": "A posting."}]
     assert request["output_config"]["effort"] == "low"
     assert request["output_config"]["format"]["type"] == "json_schema"
@@ -104,7 +110,7 @@ def test_claude_failed_answers_keep_usage_and_text(body: dict[str, Any], error: 
     with pytest.raises(error) as caught:
         claude_provider(200, body, []).extract("Rules.", "A posting.", Answer)
     # Billed tokens and the raw answer are kept, so llm_calls records them even for failures.
-    assert caught.value.usage == Usage(input_tokens=1200, output_tokens=300)
+    assert caught.value.usage == Usage(input_tokens=1200, output_tokens=300, cache_read_tokens=3300)
     assert caught.value.raw_text
 
 
@@ -124,7 +130,12 @@ def gemini_response(text: str, finish_reason: str = "STOP") -> dict[str, Any]:
         "candidates": [
             {"content": {"role": "model", "parts": [{"text": text}]}, "finishReason": finish_reason}
         ],
-        "usageMetadata": {"promptTokenCount": 1000, "candidatesTokenCount": 200, "thoughtsTokenCount": 50},
+        "usageMetadata": {
+            "promptTokenCount": 1000,
+            "cachedContentTokenCount": 600,
+            "candidatesTokenCount": 200,
+            "thoughtsTokenCount": 50,
+        },
         "modelVersion": "gemini-3.5-flash",
     }
 
@@ -144,11 +155,12 @@ def test_gemini_sends_schema_and_counts_thinking_as_output() -> None:
     result = gemini_provider(200, gemini_response(VALID), sent).extract("Rules.", "A posting.", Answer)
 
     assert result.parsed == Answer(company="Acme", years=5)
-    assert result.usage == Usage(input_tokens=1000, output_tokens=250)  # 200 answer + 50 thinking
+    # Gemini's prompt count includes the cached part: 1000 - 600. Output: 200 answer + 50 thinking.
+    assert result.usage == Usage(input_tokens=400, output_tokens=250, cache_read_tokens=600)
     assert sent[0]["url"].endswith("models/gemini-3.5-flash:generateContent")
     config = sent[0]["body"]["generationConfig"]
     assert config["responseMimeType"] == "application/json"
-    assert "responseSchema" in config or "responseJsonSchema" in config
+    assert config["responseJsonSchema"]["additionalProperties"] is False
     assert sent[0]["body"]["systemInstruction"]["parts"][0]["text"] == "Rules."
 
 
@@ -178,6 +190,9 @@ def test_gemini_client_error_becomes_provider_error() -> None:
 def test_cost_is_exact_decimal() -> None:
     # 1,200 input tokens at $0.10/MTok + 300 output at $0.50/MTok = $0.00012 + $0.00015.
     assert cost_usd("claude-haiku-5-5", Usage(1200, 300)) == Decimal("0.00027")
+    # Plus 3,300 cached tokens: written at $0.125/MTok the first time, read at $0.01/MTok after.
+    assert cost_usd("claude-haiku-5-5", Usage(1200, 300, cache_write_tokens=3300)) == Decimal("0.0006825")
+    assert cost_usd("claude-haiku-5-5", Usage(1200, 300, cache_read_tokens=3300)) == Decimal("0.000303")
     assert cost_usd("unknown-model", Usage(1, 1)) is None
     assert cost_usd("claude-haiku-5-5", None) is None
 

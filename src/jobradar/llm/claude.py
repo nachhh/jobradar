@@ -50,7 +50,13 @@ class ClaudeProvider:
             response = self._client.messages.create(
                 model=self.model,
                 max_tokens=MAX_TOKENS,
-                system=instructions,
+                # cache_control marks the end of a prefix to cache: everything up to here (the
+                # instructions, plus the schema the API adds as system text, ~3,300 tokens) is
+                # stored for 5 minutes after each use. Later calls read it at 0.1x the input price
+                # instead of paying for it again; the first write costs 1.25x. Only the posting,
+                # which comes after, is billed at the full price. The prefix must be byte-identical
+                # to hit the cache, which is why nothing variable (dates, IDs) goes in instructions.
+                system=[{"type": "text", "text": instructions, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": posting_text}],
                 # effort: how much the model thinks before answering (and so how many tokens it
                 # spends). Extraction is reading, not reasoning: "low" is enough. Current Claude
@@ -61,7 +67,13 @@ class ClaudeProvider:
             raise ProviderError(f"{type(exc).__name__}: {exc}", model=self.model) from exc
         latency_ms = round((time.monotonic() - started) * 1000)
 
-        usage = Usage(input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens)
+        u = response.usage
+        usage = Usage(
+            input_tokens=u.input_tokens,  # Claude reports the uncached part only
+            output_tokens=u.output_tokens,
+            cache_write_tokens=u.cache_creation_input_tokens or 0,
+            cache_read_tokens=u.cache_read_input_tokens or 0,
+        )
         # The answer is in the text blocks; a "thinking" block (usually empty: reasoning isn't shown
         # by default) may come first and is skipped.
         raw_text = "".join(block.text for block in response.content if block.type == "text")
