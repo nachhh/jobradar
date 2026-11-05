@@ -30,6 +30,8 @@ Introduced in the chat on 2026-11-04 (plain language first); **evals** get a sho
 | LLM call, message roles, tokens, cost per call | `src/jobradar/llm/` (one adapter per provider), `llm_calls` table |
 | Provider abstraction | `src/jobradar/llm/base.py` |
 | Structured output (schema-constrained JSON, validated with Pydantic) | `src/jobradar/enrich/schema.py` |
+| Grounding check (a cheap guard against hallucinated evidence) | `src/jobradar/enrich/grounding.py` |
+| Prompt, prompt versioning | `src/jobradar/enrich/prompt.py` |
 | Embeddings, cosine distance | `src/jobradar/retrieval/embed.py`, `posting_chunks.embedding` |
 | Chunking, contextual chunk headers | `src/jobradar/retrieval/chunk.py` |
 | Hybrid search, Reciprocal Rank Fusion | `src/jobradar/retrieval/search.py` |
@@ -224,7 +226,7 @@ Commits name their step: `[jobradar][p2][s<N>] <description>`. Diagrams and ADRs
 |---|---|---|
 | s0 | Phase setup: pyright/Pylance points at `.venv` (`8c2f946`); architecture, data-flow, ERD and state-machine diagrams for Phase 1 (`c2c81a4`); this spec (`b54f460`) | Done |
 | s1 | Split `models.py` into a `models/` package (its own commit, no behaviour change: `0789713`); migration `0005` (three tables, `unaccent`, a `pipeline` CHECK on `pipeline_runs`), the `enriched_postings` view, ORM models, schema tests; ERD | Done |
-| s2 | LLM layer: provider interface, Claude, Gemini and fake adapters, rate limiter, price table, `llm_calls` logging; `EnrichmentOut`, prompt, grounding check; ADR-0003 (provider and structured outputs) | Not started |
+| s2 | LLM layer: provider interface, Claude, Gemini and fake adapters, rate limiter, price table, `llm_calls` logging; `EnrichmentOut`, prompt, grounding check; ADR-0003 (provider and structured outputs) | Done |
 | s3 | Short introduction to evals. Enrich pipeline and CLI (`enrich`, `--dry-run`, `--limit`); a 50-posting trial run and the owner's spot check; then the full backfill | Not started |
 | s4 | HN linking through the enrichment's `dedup_key`; re-link after enrich | Not started |
 | s5 | Chunking, embeddings and the index pipeline (`index`), `onnxruntime` pin; ADR-0004 (local embeddings) | Not started |
