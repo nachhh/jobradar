@@ -4,9 +4,9 @@ Written in [Mermaid](https://mermaid.js.org/): diagrams as text inside Markdown,
 
 | Diagram | Shows |
 |---|---|
-| [Architecture](architecture.md) | Components and where they run: APIs, CLI, pipeline stages, database |
-| [Data flow](data-flow.md) | How a posting travels from an API response to the `current_postings` view |
+| [Architecture](architecture.md) | Components and where they run: job APIs, LLM APIs, CLI, pipelines, database |
+| [Data flow](data-flow.md) | How a posting travels from an API response to `current_postings`, and through LLM enrichment |
 | [Entity-relationship](erd.md) | Tables, columns and relationships |
-| [State machines](state-machines.md) | Lifecycles of a source within a run, a run, and a posting |
+| [State machines](state-machines.md) | Lifecycles of a source within a run, a run, a posting, and its enrichment |
 
 They describe what is built, not plans: each phase updates the diagrams it changes.

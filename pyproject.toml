@@ -50,7 +50,7 @@ pythonVersion = "3.12"
 # depending on which interpreter is selected in the UI.
 venvPath = "."
 venv = ".venv"
-include = ["src", "tests", "migrations"]
+include = ["src", "tests", "migrations", "evals"]
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]

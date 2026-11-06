@@ -9,13 +9,16 @@ import uuid
 from typing import Annotated
 
 import typer
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 
 from jobradar.config import get_settings
 from jobradar.db import check_database, get_engine
+from jobradar.enrich import pipeline as enrich_pipeline
 from jobradar.ingest import pipeline
-from jobradar.models import PipelineRun, PipelineRunSource, RunStatus, Source, Trigger
+from jobradar.ledger import RunLockedError
+from jobradar.llm import MissingApiKeyError, make_provider
+from jobradar.models import LlmCall, PipelineRun, PipelineRunSource, RunStatus, Source, Trigger
 
 app = typer.Typer(help="JobRadar: job-market intelligence over public job postings.", no_args_is_help=True)
 
@@ -71,7 +74,7 @@ def ingest(
             result = pipeline.resume_ingest(engine, uuid.UUID(resume), force=force)
         else:
             result = pipeline.run_ingest(engine, source or list(Source), trigger=trigger, force=force)
-    except (pipeline.RunLockedError, pipeline.NothingToRunError, pipeline.ResumeError, ValueError) as exc:
+    except (RunLockedError, pipeline.NothingToRunError, pipeline.ResumeError, ValueError) as exc:
         typer.secho(str(exc), fg="yellow", err=True)
         raise typer.Exit(code=1) from exc
     _print_runs(limit=1, run_id=result.run_id)
@@ -90,10 +93,55 @@ def transform(
         raise typer.Exit(code=2)
     try:
         result = pipeline.rebuild(get_engine())
-    except pipeline.RunLockedError as exc:
+    except RunLockedError as exc:
         typer.secho(str(exc), fg="yellow", err=True)
         raise typer.Exit(code=1) from exc
     _print_runs(limit=1, run_id=result.run_id)
+
+
+@app.command()
+def enrich(
+    limit: Annotated[
+        int | None, typer.Option(help="At most this many postings (per source with --source).")
+    ] = None,
+    source: Annotated[list[Source] | None, typer.Option(help="Only these sources (repeatable).")] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Count stale postings and estimate the cost.")
+    ] = False,
+    trigger: Annotated[Trigger, typer.Option(help="Recorded in the ledger; cron passes 'scheduled'.")] = (
+        Trigger.MANUAL
+    ),
+) -> None:
+    """Extract LLM fields for active postings whose enrichment is missing or out of date."""
+    settings = get_settings()
+    engine = get_engine()
+    if dry_run:
+        stale = enrich_pipeline.find_stale(engine, limit, source)
+        # Only the model name is needed for the estimate, so no API key (and no call) is involved.
+        model = {"claude": "claude-haiku-5-5", "gemini": "gemini-3.5-flash"}[settings.llm_provider]
+        cost = enrich_pipeline.estimate_cost(stale, model)
+        typer.echo(f"{len(stale)} postings to enrich with {model}; estimated cost ${cost or 0:.2f}")
+        return
+    try:
+        provider = make_provider(settings)
+        result = enrich_pipeline.run_enrich(
+            engine,
+            provider,
+            limit=limit,
+            max_calls=settings.enrich_max_calls,
+            concurrency=settings.enrich_concurrency,
+            sources=source,
+            trigger=trigger,
+        )
+    except enrich_pipeline.NothingToEnrichError as exc:
+        typer.echo(str(exc))
+        return  # nothing to do is a success: exit 0, so a cron chain continues
+    except (RunLockedError, MissingApiKeyError) as exc:
+        typer.secho(str(exc), fg="yellow", err=True)
+        raise typer.Exit(code=1) from exc
+    _print_runs(limit=1, run_id=result.run_id)
+    if result.status != RunStatus.SUCCEEDED:
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -117,6 +165,23 @@ def _print_runs(limit: int, run_id: uuid.UUID | None = None) -> None:
             .where(PipelineRunSource.run_id.in_([r.run_id for r in run_rows]))
             .order_by(PipelineRunSource.started_at)
         ).all()
+        # LLM totals per run: SUMs over llm_calls (never stored on the run itself).
+        llm_rows = {
+            row.run_id: row
+            for row in conn.execute(
+                select(
+                    LlmCall.run_id,
+                    func.count().label("calls"),
+                    func.count().filter(LlmCall.status.in_(["ok", "ungrounded"])).label("ok"),
+                    func.coalesce(func.sum(LlmCall.input_tokens), 0).label("input_tokens"),
+                    func.coalesce(func.sum(LlmCall.cache_read_tokens), 0).label("cached_tokens"),
+                    func.coalesce(func.sum(LlmCall.output_tokens), 0).label("output_tokens"),
+                    func.coalesce(func.sum(LlmCall.cost_usd), 0).label("cost"),
+                )
+                .where(LlmCall.run_id.in_([r.run_id for r in run_rows]))
+                .group_by(LlmCall.run_id)
+            ).all()
+        }
 
     if not run_rows:
         typer.echo("No runs yet. Try `jobradar ingest`.")
@@ -129,6 +194,12 @@ def _print_runs(limit: int, run_id: uuid.UUID | None = None) -> None:
         skipped = run.params.get("skipped") or []
         if skipped:
             typer.echo(f"    skipped: {', '.join(skipped)}")
+        if (llm := llm_rows.get(run.run_id)) is not None:
+            typer.echo(
+                f"    {run.params.get('stale', '?')} stale  {llm.calls} calls ({llm.ok} ok)  "
+                f"tokens in {llm.input_tokens:,} + cached {llm.cached_tokens:,}, out {llm.output_tokens:,}  "
+                f"cost ${llm.cost:.4f}"
+            )
         for src in (s for s in source_rows if s.run_id == run.run_id):
             line = (
                 f"    {src.source:<10} {src.status:<9} {src.stage or '-':<11} "

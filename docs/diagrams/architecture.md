@@ -1,6 +1,6 @@
 # Architecture
 
-What runs where, as built in Phase 1. Later phases add LLM enrichment, retrieval and the agent on top of the same Postgres database (see the [project overview](../../specs/00-overview.md)).
+What runs where: ingestion (Phase 1) and LLM enrichment (Phase 2, so far). Retrieval and the agent come next, on top of the same Postgres database (see the [project overview](../../specs/00-overview.md)).
 
 ```mermaid
 flowchart LR
@@ -15,7 +15,8 @@ flowchart LR
 
     CRON(["cron<br/>08:00 and 20:00"]) --> CLI
     YOU(["you"]) --> CLI
-    CLI["CLI (Typer)<br/>ingest · transform --rebuild · runs"] --> PIPE
+    CLI["CLI (Typer)<br/>ingest · transform --rebuild · enrich · runs"] --> PIPE
+    CLI --> ENRICH
 
     subgraph app["Python: jobradar.ingest"]
         direction TB
@@ -28,13 +29,31 @@ flowchart LR
 
     apis -- "HTTPS / JSON" --> S1
 
+    subgraph enrich["Python: jobradar.enrich + jobradar.llm"]
+        direction TB
+        ENRICH["enrich/pipeline.py<br/>stale postings → threads + rate limiter<br/>validate (Pydantic), grounding check"]
+        PROVIDER["llm/: provider interface<br/>Claude (default) · Gemini · fake"]
+        ENRICH --> PROVIDER
+    end
+
+    subgraph llms["LLM APIs"]
+        direction TB
+        CLAUDE["Claude Haiku 5.5<br/>structured output, prompt cache"]
+        GEMINI["Gemini (free tier)"]
+    end
+    PROVIDER -- "HTTPS / JSON schema" --> llms
+
     subgraph pg["Postgres 17 + pgvector + pg_trgm (Docker)"]
         direction TB
         LEDGER[("pipeline_runs<br/>pipeline_run_sources")]
         RAW[("raw_postings")]
         CLEAN[("postings<br/>rejected_postings")]
         VIEW[["view: current_postings"]]
+        ENR[("posting_enrichments<br/>llm_calls")]
+        EVIEW[["view: enriched_postings"]]
         CLEAN --> VIEW
+        VIEW --> EVIEW
+        ENR --> EVIEW
     end
 
     PIPE -- "run ledger, lock" --> LEDGER
@@ -42,7 +61,9 @@ flowchart LR
     RAW -- "rows seen in this run" --> S2
     S2 --> CLEAN
     S3 -- "canonical_id" --> CLEAN
-    VIEW -. "Phase 2: enrichment, embeddings, search" .-> NEXT(["next phases"])
+    CLEAN -- "stale active postings" --> ENRICH
+    ENRICH -- "one transaction per posting" --> ENR
+    EVIEW -. "next: embeddings, search" .-> NEXT(["next steps"])
 ```
 
 ## Reading it
@@ -50,6 +71,7 @@ flowchart LR
 - **One process per run.** The CLI calls plain functions in `pipeline.py`; cron is just another caller. An orchestrator (Dagster, later) can call the same functions.
 - **The lock** is a Postgres advisory lock held for the whole run, so a second run started meanwhile exits at once.
 - **Each stage of each source is its own transaction**, so a failure or a crash undoes only the stage it hit (see [state machines](state-machines.md)).
+- **Enrichment runs separately** (`jobradar enrich`), with its own advisory lock, so it can run alongside an ingest. It only reads what ingestion wrote and never changes `postings` ([ADR-0003](../adr/0003-llm-provider-and-structured-outputs.md)).
 - **Everything lives in one database** ([ADR-0002](../adr/0002-postgres-with-pgvector.md)): the ledger, the raw and clean layers, and later the embeddings.
 
-Code: [cli.py](../../src/jobradar/cli.py), [pipeline.py](../../src/jobradar/ingest/pipeline.py), [http.py](../../src/jobradar/ingest/http.py), [sources/](../../src/jobradar/ingest/sources/), [transform.py](../../src/jobradar/ingest/transform.py), [link.py](../../src/jobradar/ingest/link.py).
+Code: [cli.py](../../src/jobradar/cli.py), [pipeline.py](../../src/jobradar/ingest/pipeline.py), [enrich/](../../src/jobradar/enrich/), [llm/](../../src/jobradar/llm/), [ledger.py](../../src/jobradar/ledger.py), [http.py](../../src/jobradar/ingest/http.py), [sources/](../../src/jobradar/ingest/sources/), [transform.py](../../src/jobradar/ingest/transform.py), [link.py](../../src/jobradar/ingest/link.py).

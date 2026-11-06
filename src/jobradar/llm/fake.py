@@ -8,13 +8,15 @@ from pydantic import BaseModel, ValidationError
 from jobradar.llm.base import InvalidOutputError, LlmResponse, Usage
 
 # The function receives the posting text and returns the answer as a dict (validated against the
-# schema like a real answer) or raises an LlmError to simulate a failure.
+# schema like a real answer) or raises an LlmError to simulate a failure. It may be called from
+# several threads at once (the enrich pipeline's workers).
 Responder = Callable[[str], dict[str, object]]
 
 
 class FakeProvider:
     name = "fake"
     model = "fake-model"
+    requests_per_minute = 60_000.0  # no real limit; tests shouldn't wait
 
     def __init__(self, respond: Responder) -> None:
         self._respond = respond

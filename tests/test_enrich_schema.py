@@ -126,6 +126,7 @@ def test_posting_text_lists_present_fields_only() -> None:
         "company": None,  # left out, not written as "None"
         "location_text": "Santiago",
         "remote": "unknown",  # "unknown" adds nothing: left out
+        "seniority": "Semi Senior",
         "tags": ["python", "spark"],
         "salary_min": 2000,
         "salary_max": 3000,
@@ -134,6 +135,7 @@ def test_posting_text_lists_present_fields_only() -> None:
         "description": "Build pipelines.",
     }
     assert build_posting_text(posting) == (
-        "Board: getonboard\nTitle: Data Engineer\nLocation: Santiago\nTags: python, spark\n"
+        "Board: getonboard\nTitle: Data Engineer\nLocation: Santiago\nSeniority (board): Semi Senior\n"
+        "Tags: python, spark\n"
         "Salary (board): 2000-3000 USD month\n\nDescription:\nBuild pipelines."
     )

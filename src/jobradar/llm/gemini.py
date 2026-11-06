@@ -7,7 +7,14 @@ from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel, ValidationError
 
-from jobradar.llm.base import InvalidOutputError, LlmResponse, ProviderError, RefusedError, Usage
+from jobradar.llm.base import (
+    FatalProviderError,
+    InvalidOutputError,
+    LlmResponse,
+    ProviderError,
+    RefusedError,
+    Usage,
+)
 
 # The model the owner's ai_hello_world experiments used. Free tier: no charge, but a cap on
 # requests per minute and per day (checked in the AI Studio console).
@@ -41,6 +48,8 @@ class GeminiProvider:
     """Calls generate_content with a response schema and JSON as the required output type."""
 
     name = "gemini"
+    # Free-tier limits are low and change; 10 a minute stays under them.
+    requests_per_minute = 10.0
 
     def __init__(
         self,
@@ -74,6 +83,9 @@ class GeminiProvider:
                 model=self.model, contents=posting_text, config=config
             )
         except errors.APIError as exc:
+            # 401/403/404: bad key, no access, unknown model. No retry fixes those.
+            if exc.code in (401, 403, 404):
+                raise FatalProviderError(f"{type(exc).__name__}: {exc}", model=self.model) from exc
             raise ProviderError(f"{type(exc).__name__}: {exc}", model=self.model) from exc
         latency_ms = round((time.monotonic() - started) * 1000)
 

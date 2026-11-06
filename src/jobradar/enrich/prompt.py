@@ -8,7 +8,15 @@ so the next run re-enriches everything (a full pass, about $1 with Claude Haiku)
 from collections.abc import Mapping
 from typing import Any
 
-PROMPT_VERSION = "v1"
+# v1 (2026-11-05): first version.
+# v2 (2026-11-06): the board's seniority is passed in (a code eval against the boards' own fields
+# found it missing); clear inference allowed for seniority and languages (owner's decision after
+# the spot check); rules for required vs nice-to-have skills, full-stack roles and office locations.
+# Trial only: comparing it with v1 showed a regression, latam_hiring "unknown" on clear cases.
+# v3 (2026-11-06): v2, with inference limited to seniority and languages (v2's broad "or what it
+# clearly implies" made the model cautious about LATAM), examples for each LATAM answer, and the
+# title winning over the board's seniority when they disagree.
+PROMPT_VERSION = "v3"
 
 # Written as rules, one per field where it matters. The model also sees the field descriptions in
 # the schema; these instructions cover the judgement calls the schema can't express.
@@ -17,7 +25,8 @@ You extract structured facts from one job posting, for a job-search tool.
 
 General rules:
 - Use only what the posting states. When it doesn't say, answer "unknown", null or an empty list.
-  Don't infer from the company's reputation or from what is typical for such roles.
+  Don't infer from the company's reputation or from what is typical for such roles. The only
+  exceptions are seniority and languages, where the rules below allow clear inferences.
 - Postings may be in Spanish, English or both. Keep company and title as written; write the
   summary in English.
 - The board's fields (title, location, tags, salary) appear above the description and are part
@@ -25,27 +34,38 @@ General rules:
 
 Fields:
 - company, title: as written. Hacker News posts usually start with "Company | Role | Location | ...".
-- seniority: from the title or explicit wording ("Semi Senior"/"SSr" = mid, "Sr" = senior,
-  "Tech Lead"/"Lead" = lead, "Staff"/"Principal" = principal, "Trainee"/"Pasante" = intern).
-  Otherwise unknown.
-- role_family: the main function. ai_training is labelling data or writing and rating examples to
-  train AI models (often contract work titled "AI Trainer" or "Coding Expert for AI"), not building
-  AI systems; building ML or LLM systems is ml_ai_engineering.
+- seniority: from the title, the board's seniority or explicit wording ("Semi Senior"/"SSr" =
+  mid, "Sr" = senior, "Tech Lead"/"Lead"/"Manager"/"Head of" = lead, "Staff"/"Principal" =
+  principal, "Entry-level"/"Junior" = junior, "Trainee"/"Pasante" = intern). When the title and
+  the board disagree, the title wins: it is more specific. If none says, infer it only when the
+  requirements make it clear
+  (e.g. 5+ years and owning architecture or mentoring = senior; 0-1 years = junior). If the posting
+  lists several roles at different levels, use the most senior one. Otherwise unknown.
+- role_family: the main function. If the posting expects full-stack ability (frontend and
+  backend), it is fullstack even when the title names one side. ai_training is labelling data or
+  writing and rating examples to train AI models (often contract work titled "AI Trainer" or
+  "Coding Expert for AI"), not building AI systems; building ML or LLM systems is
+  ml_ai_engineering.
 - remote: remote = can work fully remotely; hybrid = some days in an office; onsite = office only.
 - latam_hiring: can people located in Latin America be hired?
   yes: open to Argentina, Latin America (LATAM), South America, the Americas, or anywhere/worldwide
-  without excluding Latin America; or the job is based in a Latin American country.
-  no: restricted to places that exclude Latin America (e.g. "US only", "must be based in the EU",
-  "must be authorized to work in the US").
-  unknown: anything else.
+  without excluding Latin America; or the job is based in a Latin American country. Examples:
+  "Location: Worldwide", "Remote, any location", "LATAM", "Location: Chile".
+  no: restricted to places that exclude Latin America. Examples: "REMOTE (US)", "US only",
+  "Remote within Europe", "must be authorized to work in the US", "onsite in London".
+  unknown: the posting gives no location or eligibility at all.
 - latam_evidence: copy, character for character, the sentence or phrase that supports latam_hiring
   (it is checked against the posting). null when latam_hiring is unknown.
-- location_restrictions: countries or regions candidates must be in, if any.
+- location_restrictions: countries, regions or cities candidates must be in, if any. For onsite
+  or hybrid jobs, the office locations are restrictions (e.g. "only in NYC" -> ["New York"]).
 - skills_required, skills_nice: technologies, languages, tools and methods named in the posting
   (e.g. python, spark, airflow, aws, kubernetes, sql, dbt), lowercase, common names, no soft
-  skills, at most 15 each. Nice to have: "deseable", "plus", "bonus", "nice to have".
+  skills, at most 15 each. A skill is nice to have only when the posting marks it so ("deseable",
+  "plus", "bonus", "nice to have", "a plus"); everything else it asks for is required.
 - years_experience_min: the minimum years of experience required, if stated.
-- languages: spoken languages required (english, spanish, portuguese...).
+- languages: spoken languages required (english, spanish, portuguese...). Besides languages the
+  posting names, include the posting's own language when the job is clearly limited to countries
+  that speak it (e.g. an English posting for US-only roles -> english).
 - salary_*: only amounts the posting states, as written (no conversion), with the ISO currency
   code and the period. salary_basis: net if after taxes ("líquido", "neto", "net"), gross if
   before taxes ("bruto", "gross"), else unknown.
@@ -53,7 +73,7 @@ Fields:
 """
 
 
-def _salary_line(posting: Mapping[str, Any]) -> str | None:
+def _salary_line(posting: Mapping[Any, Any]) -> str | None:
     """The board's structured salary, e.g. "4000-5000 USD per month", or its free text."""
     low, high = posting.get("salary_min"), posting.get("salary_max")
     if low is None and high is None:
@@ -65,7 +85,7 @@ def _salary_line(posting: Mapping[str, Any]) -> str | None:
     return f"{amount} {unit}".strip()
 
 
-def build_posting_text(posting: Mapping[str, Any]) -> str:
+def build_posting_text(posting: Mapping[Any, Any]) -> str:
     """The user message: the board's fields that are present, then the description.
 
     `posting` is a row of `postings` (any mapping with its column names). Empty fields are left out
@@ -78,6 +98,7 @@ def build_posting_text(posting: Mapping[str, Any]) -> str:
         "Company": posting.get("company"),
         "Location": posting.get("location_text"),
         "Remote (board)": None if posting.get("remote") in (None, "unknown") else posting.get("remote"),
+        "Seniority (board)": posting.get("seniority"),
         "Tags": tags or None,
         "Salary (board)": _salary_line(posting),
     }

@@ -22,3 +22,6 @@ logs/
 .DS_Store
 .idea/
 .vscode/
+
+# Human review files (contain posting texts, incl. emails from HN posts); only scores are recorded.
+evals/review/

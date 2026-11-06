@@ -1,6 +1,6 @@
 # State machines
 
-Three things in the ingestion pipeline have a lifecycle worth drawing: a source within a run, the run itself, and a posting.
+Four things have a lifecycle worth drawing: a source within an ingest run, a run, a posting, and a posting's enrichment.
 
 ## A source within a run
 
@@ -83,3 +83,33 @@ stateDiagram-v2
 **Identity rules:** links are never removed automatically, and a canonical stays canonical after it closes. Which copy represents the job is decided at read time by the `current_postings` view (the canonical if active, else the oldest active copy).
 
 Code: [pipeline.py](../../src/jobradar/ingest/pipeline.py), [transform.py](../../src/jobradar/ingest/transform.py) (`_deactivate`), [link.py](../../src/jobradar/ingest/link.py).
+
+## A posting's enrichment
+
+The row in `posting_enrichments` (none at first), as `jobradar enrich` sees it. Only active postings are considered.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "no enrichment" as None
+    state "ok · up to date" as Ok
+    state "failed · retried next run" as Failed
+    state "failed · skipped<br/>3 attempts on this input" as Skipped
+    state "stale<br/>content or prompt changed" as Stale
+
+    [*] --> None
+    None --> Ok : valid answer
+    None --> Failed : invalid twice, or refused
+    None --> None : API error (not an attempt)
+    Failed --> Ok : valid answer
+    Failed --> Failed : fails again, attempts below 3
+    Failed --> Skipped : third failed attempt
+    Ok --> Stale : content_hash or PROMPT_VERSION changes
+    Skipped --> Stale : content_hash or PROMPT_VERSION changes
+    Stale --> Ok : valid answer
+    Stale --> Failed : invalid twice, or refused
+```
+
+"ok" includes answers whose LATAM quote wasn't found in the posting: they are kept, with `latam_hiring` set to unknown (`llm_calls.status` = ungrounded).
+
+Code: [enrich/pipeline.py](../../src/jobradar/enrich/pipeline.py) (`_is_stale`, `_upsert_failed`).

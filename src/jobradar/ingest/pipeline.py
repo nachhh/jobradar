@@ -13,13 +13,10 @@ Concepts:
 - **Plain functions.** The CLI calls them; an orchestrator (Dagster, later) can call the same ones.
 """
 
-import hashlib
 import json
 import logging
-import subprocess
 import uuid
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -32,6 +29,7 @@ from jobradar.ingest.link import link_duplicates
 from jobradar.ingest.sources import EXTRACTORS
 from jobradar.ingest.sources.base import Extractor, RawRecord
 from jobradar.ingest.transform import TransformCounts, transform_source
+from jobradar.ledger import advisory_lock, finish_run, lock_id, start_run
 from jobradar.models import (
     Pipeline,
     PipelineRun,
@@ -54,14 +52,7 @@ MIN_FETCH_INTERVAL = {
     Source.HIMALAYAS: timedelta(hours=20),  # data refreshes daily; ~230 requests per fetch
     Source.JOBICY: timedelta(hours=1),  # "must not exceed once per hour"
 }
-# The advisory lock's id: Postgres identifies advisory locks by a 64-bit integer, and any fixed
-# value that nothing else in the database uses will do. Deriving it from a readable name documents
-# what it locks (the first 8 bytes of a SHA-256, read as a signed 64-bit integer).
-LOCK_ID = int.from_bytes(hashlib.sha256(b"jobradar.ingest").digest()[:8], "big", signed=True)
-
-
-class RunLockedError(Exception):
-    """Another ingest run holds the lock."""
+LOCK_ID = lock_id("jobradar.ingest")  # the advisory lock held by ingest runs (see ledger.py)
 
 
 class NothingToRunError(Exception):
@@ -103,12 +94,12 @@ def run_ingest(
     make_fetcher: Callable[[], Fetcher] = default_fetcher,
 ) -> RunResult:
     """Start a new run over `sources`. `extractors` and `make_fetcher` can be swapped in tests."""
-    with _ingest_lock(engine):
+    with advisory_lock(engine, LOCK_ID, "ingest"):
         to_run, skipped = _apply_fetch_intervals(engine, sources, force=force)
         if not to_run:
             raise NothingToRunError(f"all sources skipped: {', '.join(skipped)}")
         params = {"sources": list(to_run), "skipped": list(skipped), "force": force}
-        run_id = _start_run(engine, Pipeline.INGEST, trigger, params)
+        run_id = start_run(engine, Pipeline.INGEST, trigger, params)
         logger.info("run %s started: %s", run_id, ", ".join(to_run))
         for source in to_run:
             _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
@@ -126,7 +117,7 @@ def resume_ingest(
 ) -> RunResult:
     """Finish `run_id`: skip sources that succeeded, re-transform those that reached `extracted`
     (no API calls), and extract again only those that never got that far."""
-    with _ingest_lock(engine):
+    with advisory_lock(engine, LOCK_ID, "ingest"):
         run = _resumable_run(engine, run_id)
         states = {
             row.source: row
@@ -155,8 +146,8 @@ def rebuild(engine: Engine, sources: Sequence[Source] = tuple(Source)) -> RunRes
     Only postings whose parsed content changes are rewritten (the content_hash rule), so after a
     parser fix exactly the affected postings show up as `updated` in the ledger.
     """
-    with _ingest_lock(engine):
-        run_id = _start_run(engine, Pipeline.REBUILD, Trigger.MANUAL, {"sources": list(sources)})
+    with advisory_lock(engine, LOCK_ID, "ingest"):
+        run_id = start_run(engine, Pipeline.REBUILD, Trigger.MANUAL, {"sources": list(sources)})
         for source in sources:
             _start_source(engine, run_id, source)
             try:
@@ -329,38 +320,7 @@ def _apply_fetch_intervals(
 # --- The lock ---------------------------------------------------------------------------------
 
 
-@contextmanager
-def _ingest_lock(engine: Engine) -> Iterator[None]:
-    """Hold a Postgres advisory lock for the whole run, or fail at once if someone else has it.
-
-    An advisory lock is a named mutex inside Postgres with no table attached: the application
-    decides what it means. pg_try_advisory_lock returns false instead of waiting (fail fast). The
-    lock belongs to the *session* (connection), not a transaction: it's released by
-    pg_advisory_unlock, or automatically when the connection closes, so a crash can't leave it stuck.
-    """
-    with engine.connect() as conn:
-        acquired = conn.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": LOCK_ID}).scalar_one()
-        conn.commit()  # ends SQLAlchemy's implicit transaction; the session-level lock stays held
-        if not acquired:
-            raise RunLockedError("another ingest run is in progress")
-        try:
-            yield
-        finally:
-            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": LOCK_ID})
-            conn.commit()
-
-
 # --- Ledger writes ----------------------------------------------------------------------------
-
-
-def _start_run(engine: Engine, pipeline: Pipeline, trigger: Trigger, params: dict[str, Any]) -> uuid.UUID:
-    stmt = (
-        pg_insert(PipelineRun)
-        .values(pipeline=pipeline, trigger=trigger, params=params, git_sha=_git_sha())
-        .returning(PipelineRun.run_id)
-    )
-    with engine.begin() as conn:
-        return conn.execute(stmt).scalar_one()
 
 
 def _start_source(engine: Engine, run_id: uuid.UUID, source: Source) -> None:
@@ -425,11 +385,7 @@ def _finish_run(engine: Engine, run_id: uuid.UUID) -> RunStatus:
             status = RunStatus.PARTIAL
         else:
             status = RunStatus.FAILED
-        conn.execute(
-            update(PipelineRun)
-            .where(PipelineRun.run_id == run_id)
-            .values(status=status, finished_at=func.now())
-        )
+    finish_run(engine, run_id, status)
     logger.info("run %s: %s", run_id, status)
     return status
 
@@ -472,19 +428,3 @@ def _query(engine: Engine, stmt: Select[Any]) -> Sequence[Row[Any]]:
     """Run a read-only query on a short-lived connection."""
     with engine.connect() as conn:
         return conn.execute(stmt).all()
-
-
-def _git_sha() -> str | None:
-    """The commit the code runs from, for lineage; None outside a git checkout."""
-    try:
-        # S603/S607: fixed arguments (no user input), and `git` found on PATH on purpose.
-        result = subprocess.run(  # noqa: S603
-            ["git", "rev-parse", "--short=12", "HEAD"],  # noqa: S607
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return result.stdout.strip() or None

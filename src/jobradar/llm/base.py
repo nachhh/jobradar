@@ -90,9 +90,14 @@ class RefusedError(LlmError):
 
 
 class ProviderError(LlmError):
-    """Network or API failure after the SDK's own retries: no answer at all."""
+    """Network or API failure after the SDK's own retries: no answer at all. Usually temporary."""
 
     status = LlmCallStatus.ERROR
+
+
+class FatalProviderError(ProviderError):
+    """An error every following call would hit too (bad API key, no permission, unknown model):
+    the run should stop instead of failing posting after posting."""
 
 
 class LlmProvider(Protocol):
@@ -101,6 +106,7 @@ class LlmProvider(Protocol):
 
     name: str  # "claude", "gemini", "fake": stored in llm_calls.provider
     model: str  # e.g. "claude-haiku-5-5": stored in llm_calls.model
+    requests_per_minute: float  # a pace safely under the provider's rate limit
 
     def extract[T: BaseModel](self, instructions: str, posting_text: str, schema: type[T]) -> LlmResponse[T]:
         """Ask for `schema`-shaped JSON about `posting_text`, following `instructions`.

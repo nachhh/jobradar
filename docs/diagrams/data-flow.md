@@ -1,6 +1,8 @@
 # Data flow
 
-How one source's postings travel through a run, from the API response to the view that later phases read. Boxes are data; arrows are the code that moves it.
+How postings travel from an API response to the views that search and the agent read: first ingestion, then LLM enrichment. Boxes are data; arrows are the code that moves it.
+
+## Ingestion (one source in a run)
 
 ```mermaid
 flowchart TB
@@ -45,3 +47,39 @@ A logo URL change makes a new raw version but no update in `postings`; an edited
 - **Rejected new version of a known posting**: it was still listed, so its previous clean row stays active.
 
 Code: [sources/base.py](../../src/jobradar/ingest/sources/base.py) (`RawRecord`, `payload_hash`), [pipeline.py](../../src/jobradar/ingest/pipeline.py) (`load_raw`), [posting.py](../../src/jobradar/ingest/posting.py) (`PostingIn`), [transform.py](../../src/jobradar/ingest/transform.py), [link.py](../../src/jobradar/ingest/link.py).
+
+## Enrichment
+
+What `jobradar enrich` does with each active posting whose enrichment is missing or stale.
+
+```mermaid
+flowchart TB
+    POST[("postings<br/>active, enrichment missing or stale")]
+    TEXT["posting text<br/>board fields + description"]
+    LLM[/"LLM answer (JSON)<br/>constrained by the EnrichmentOut schema"/]
+    VALID{"Pydantic<br/>valid?"}
+    RETRY["one retry,<br/>with the validation error"]
+    GROUND{"LATAM quote<br/>in the posting?"}
+    OK[("posting_enrichments<br/>status ok")]
+    FAIL[("posting_enrichments<br/>status failed, attempts + 1")]
+    CALLS[("llm_calls<br/>every call: tokens, cost, outcome")]
+    VIEW[["enriched_postings<br/>source values first, LLM fills gaps"]]
+
+    POST -- "build_posting_text()" --> TEXT
+    TEXT -- "instructions (cached) + posting" --> LLM
+    LLM --> VALID
+    VALID -- "no, first time" --> RETRY
+    RETRY --> LLM
+    VALID -- "no, after the retry" --> FAIL
+    VALID -- "yes" --> GROUND
+    GROUND -- "yes, or latam unknown" --> OK
+    GROUND -- "no: latam set to unknown" --> OK
+    LLM -. "logged" .-> CALLS
+    OK --> VIEW
+```
+
+- **Stale** means: no enrichment yet, the posting's `content_hash` changed, or `PROMPT_VERSION` changed. A failed enrichment is retried on later runs until it has 3 failed attempts on the same content and prompt.
+- **API errors** (network, provider down) write no enrichment: the posting stays stale and the next run tries again. They're still logged in `llm_calls`.
+- Each posting's calls and result are committed in one transaction.
+
+Code: [enrich/pipeline.py](../../src/jobradar/enrich/pipeline.py), [enrich/schema.py](../../src/jobradar/enrich/schema.py), [enrich/grounding.py](../../src/jobradar/enrich/grounding.py), [llm/](../../src/jobradar/llm/).

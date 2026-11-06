@@ -6,7 +6,14 @@ import anthropic
 from anthropic.types import JSONOutputFormatParam
 from pydantic import BaseModel, ValidationError
 
-from jobradar.llm.base import InvalidOutputError, LlmResponse, ProviderError, RefusedError, Usage
+from jobradar.llm.base import (
+    FatalProviderError,
+    InvalidOutputError,
+    LlmResponse,
+    ProviderError,
+    RefusedError,
+    Usage,
+)
 
 MODEL = "claude-haiku-5-5"
 
@@ -14,11 +21,17 @@ MODEL = "claude-haiku-5-5"
 # JSON, which then fails validation, so it's set well above what an answer needs.
 MAX_TOKENS = 4096
 
+# Errors no retry can fix: a wrong or revoked key (401), a key without access (403), a model name
+# the API doesn't know (404).
+_FATAL = (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError)
+
 
 class ClaudeProvider:
     """Calls the Messages API with a JSON schema as the required output format."""
 
     name = "claude"
+    # The lowest published rate-limit tier allows 50 requests a minute; staying at it avoids 429s.
+    requests_per_minute = 50.0
 
     def __init__(
         self,
@@ -63,6 +76,8 @@ class ClaudeProvider:
                 # models don't accept `temperature`; the schema and low effort keep answers stable.
                 output_config={"format": output_format, "effort": "low"},
             )
+        except _FATAL as exc:
+            raise FatalProviderError(f"{type(exc).__name__}: {exc}", model=self.model) from exc
         except anthropic.APIError as exc:  # anything the SDK couldn't recover from with its retries
             raise ProviderError(f"{type(exc).__name__}: {exc}", model=self.model) from exc
         latency_ms = round((time.monotonic() - started) * 1000)

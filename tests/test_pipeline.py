@@ -21,6 +21,7 @@ from jobradar.ingest.http import Fetcher
 from jobradar.ingest.posting import PostingIn
 from jobradar.ingest.sources import PARSERS
 from jobradar.ingest.sources.base import Payload, RawRecord, make_record
+from jobradar.ledger import RunLockedError
 from jobradar.models import PipelineRunSource, Posting, RawPosting, RejectedPosting, RunStatus, Source
 
 pytestmark = pytest.mark.integration
@@ -213,7 +214,7 @@ def test_high_reject_rate_fails_and_leaves_postings_untouched(clean_db: Engine) 
 def test_a_second_concurrent_run_is_refused(clean_db: Engine) -> None:
     with clean_db.connect() as other_session:
         other_session.execute(text("SELECT pg_advisory_lock(:key)"), {"key": pipeline.LOCK_ID})
-        with pytest.raises(pipeline.RunLockedError):
+        with pytest.raises(RunLockedError):
             ingest(clean_db, fakes())
         other_session.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": pipeline.LOCK_ID})
 
