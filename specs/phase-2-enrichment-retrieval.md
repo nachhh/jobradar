@@ -97,11 +97,13 @@ One Pydantic model, sent to the provider as the JSON schema and used to validate
 
 ### Source facts and LLM fields
 
-The `enriched_postings` view returns `current_postings` joined to their enrichment. **The source wins when it has a value; the LLM fills the gaps** (`COALESCE(postings.company, enrichment.company)`, and the same for title, remote and salary). Filters use the enrichment's normalized enums (seniority, role family, LATAM), because source values are free text ("Semi Senior", "Sr.").
+The `enriched_postings` view returns `current_postings` joined to their enrichment. **The source wins when it has a value; the LLM fills the gaps** (`COALESCE(postings.company, enrichment.company)`, and the same for title and salary, which is resolved as a whole range). **Remote is the exception:** when the board's modality and the posting's own text disagree (27 GetOnBoard postings say `fully_remote` on the board and "híbrida" in the text), the posting counts as both: `remote_modes` holds both values, and filters test membership (`'remote' = ANY(remote_modes)`), so the job shows up in either search and the reader can ask the employer (migration `0007`). Filters use the enrichment's normalized enums (seniority, role family, LATAM), because source values are free text ("Semi Senior", "Sr.").
 
 ### HN and cross-source linking
 
 Each enrichment stores a `dedup_key` built from its company and title with Phase 1's `dedup_key()`. Linking uses `COALESCE(postings.dedup_key, enrichment.dedup_key)`, so HN postings join the exact and fuzzy matching with the same rules (blocking, thresholds, union-find).
+
+**Copies that contradict each other on hiring from LATAM are never grouped.** A US-only and a LATAM opening with the same company and title are different jobs for a candidate in LATAM. Union-find keeps each group's `latam_hiring` values and refuses a union that would put a "yes" and a "no" in one group (checking pairs alone isn't enough: an "unknown" copy matching both would join them transitively). "unknown" is compatible with both, since boards describe eligibility unevenly (the same job lists `{Brazil}` on one board and `{Argentina}` on another). Pairs are grouped exact-first, then by id, so the outcome is the same on every run; existing links are kept, as in Phase 1.
 
 ### Cost and rate controls
 
@@ -177,7 +179,7 @@ posting_chunks        chunks of each posting: text, tsvector, embedding
 - **`posting_chunks`:** `id`, `posting_id` (FK, cascade), `chunk_index` (unique with `posting_id`), `text` (exactly what was embedded, header included), `tsv` (`tsvector`, written by the insert with `to_tsvector('simple', unaccent(text))`; `unaccent` isn't marked immutable, so Postgres doesn't allow it in a generated column), `embedding` (`vector(768)`), `embedding_model`, `index_fingerprint`, `last_run_id` (FK), `indexed_at`.
 - **Extension:** `unaccent`.
 - **`pipeline_runs`:** `pipeline` also allows `enrich` and `index`. **No stored counts**, following Phase 1's rule (totals are `SUM`s, never copies): calls, outcomes, tokens and cost come from `llm_calls.run_id`; postings enriched and indexed per run come from `last_run_id` on `posting_enrichments` and `posting_chunks`. The one number that can't be derived, how many postings were stale when the run started, goes in the existing `params` JSONB. Considered and rejected: a `stats` JSONB column (untyped, and copies derivable numbers) and an `enrich_stats` table (typed, but one table per pipeline and a migration per new counter).
-- **View `enriched_postings`:** `current_postings` with enrichment columns and the source-first `COALESCE`s above.
+- **View `enriched_postings`:** `current_postings` with enrichment columns, the source-first `resolved_*` columns and `remote_modes` (re-created in migration `0007`).
 
 The vector dimension (768) is fixed by the model, so changing the model means a migration and a full re-index (vectors from different models can't be compared).
 
@@ -227,8 +229,8 @@ Commits name their step: `[jobradar][p2][s<N>] <description>`. Diagrams and ADRs
 | s0 | Phase setup: pyright/Pylance points at `.venv` (`8c2f946`); architecture, data-flow, ERD and state-machine diagrams for Phase 1 (`c2c81a4`); this spec (`b54f460`) | Done |
 | s1 | Split `models.py` into a `models/` package (its own commit, no behaviour change: `0789713`); migration `0005` (three tables, `unaccent`, a `pipeline` CHECK on `pipeline_runs`), the `enriched_postings` view, ORM models, schema tests; ERD | Done |
 | s2 | LLM layer: provider interface, Claude, Gemini and fake adapters, rate limiter, price table, `llm_calls` logging; `EnrichmentOut`, prompt, grounding check; ADR-0003 (provider and structured outputs) | Done |
-| s3 | Short introduction to evals. Enrich pipeline and CLI (`enrich`, `--dry-run`, `--limit`, `--source`); a 50-posting trial run and the owner's spot check; then the full backfill. Prompt caching and Gemini's schema fixed after the first live calls (`43e699a`) | In progress: spot check of v1 passed (97.0% of fields, LATAM 20/20); prompt v3 trialled, owner re-check of changed fields pending, then the backfill |
-| s4 | HN linking through the enrichment's `dedup_key`; re-link after enrich | Not started |
+| s3 | Short introduction to evals. Enrich pipeline and CLI (`enrich`, `--dry-run`, `--limit`, `--source`); a 50-posting trial run and the owner's spot check; then the full backfill. Prompt caching and Gemini's schema fixed after the first live calls (`43e699a`) | Done (`823a392`). Owner spot check of v1: 97.0% of fields, LATAM 20/20; v3 re-check of the changed fields held. Backfill (run `6e0ecf06`): 2,659/2,659 ok, 0 failed, 13 ungrounded, $1.19 in 54 min; $1.25 for all enrichment so far. Re-run: 0 calls |
+| s4 | HN linking through the enrichment's `dedup_key`; re-link after enrich (shared `relink()`, serialized by a transaction-level advisory lock); `jobradar link` | Done. On real data: 0 HN links. Only 2 of ~420 HN companies appear on another board; the one plausible duplicate (Perry Street Software, "Senior Mobile Developer (iOS)" vs "… (iOS/Android) - LATAM") scores 0.62 on title similarity, below 0.8 |
 | s5 | Chunking, embeddings and the index pipeline (`index`), `onnxruntime` pin; ADR-0004 (local embeddings) | Not started |
 | s6 | Hybrid search with RRF, filters and reranking; `search` CLI | Not started |
 | s7 | Mini retrieval eval, acceptance run on real data, crontab line, README, diagrams | Not started |
@@ -241,7 +243,10 @@ Commits name their step: `[jobradar][p2][s<N>] <description>`. Diagrams and ADRs
 - Code layout: a `models/` package, and one `retrieval/` package for chunking, embeddings, indexing, search and reranking (2026-11-05).
 - Enrichment calls run on threads, not `asyncio` (2026-11-05).
 - No stored run counts for enrich and index; derived from `llm_calls` and `last_run_id` (2026-11-05).
+- **Linking:** copies whose enrichments say LATAM "yes" and "no" are never grouped; "unknown" links with either (owner's design task; a stricter "known location on both sides" rule would have broken most of the 21 correct links) (2026-11-06).
+- **Board vs text conflicts:** title, company and salary: the source wins. Remote: a conflict counts as both values (`remote_modes`), so the job appears in remote and hybrid searches (owner's design task) (2026-11-06).
 - `salary_basis` (gross or net) extracted now. **Tech debt:** salaries in different currencies and periods aren't converted to one comparable figure (2026-11-05).
 - **Inference policy** (owner, after the spot check): the prompt allows clear inferences for seniority (from requirements, or the most senior of several roles) and spoken languages (the posting's language when the job is limited to countries that speak it); every other field stays "stated facts only". A broader "or what it clearly implies" rule (prompt v2) made the model cautious about LATAM, so it was narrowed in v3 (2026-11-06).
 - **Prompt evaluation loop:** each prompt version is trialled on the same 50 postings (10 per source) and compared with the previous one by a code eval against the boards' own structured fields (remote, seniority) plus a human check of the fields that changed, before any backfill (2026-11-06).
+- **Later idea:** a `people_management` flag. Tech-lead roles that mentor, coordinate and design without much coding sit between `fullstack` (or `backend`…) and `management`, and one `role_family` value can't say both (owner's v3 review, posting 1042). Add it if such roles matter for the owner's searches (2026-11-06).
 - **Later idea:** extract benefits (paid time off, paid vacations, bonus, equipment) as filter tags, for searches like "match my resume, but only companies that offer PTO". It would be a new `EnrichmentOut` field and a `PROMPT_VERSION` bump. GetOnBoard already sends structured `perks` and `benefits` fields (kept in `raw_postings`, not parsed yet). Not before the UI can take such filters (2026-11-05).

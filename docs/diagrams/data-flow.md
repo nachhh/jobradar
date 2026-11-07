@@ -76,6 +76,7 @@ flowchart TB
     GROUND -- "no: latam set to unknown" --> OK
     LLM -. "logged" .-> CALLS
     OK --> VIEW
+    OK -- "dedup_key (HN company + title):<br/>relink at the end of the run" --> LINKS["canonical_id<br/>on postings"]
 ```
 
 - **Stale** means: no enrichment yet, the posting's `content_hash` changed, or `PROMPT_VERSION` changed. A failed enrichment is retried on later runs until it has 3 failed attempts on the same content and prompt.

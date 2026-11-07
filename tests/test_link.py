@@ -8,7 +8,7 @@ from sqlalchemy import Connection, insert, select, text, update
 
 from jobradar.ingest.link import UnionFind, link_duplicates
 from jobradar.ingest.text import dedup_key
-from jobradar.models import PipelineRun, Posting, Source
+from jobradar.models import PipelineRun, Posting, PostingEnrichment, Source
 
 pytestmark = pytest.mark.integration
 
@@ -172,3 +172,91 @@ def test_view_shows_one_row_per_group(db_conn: Connection, run_id: uuid.UUID) ->
 
     db_conn.execute(update(Posting).where(Posting.id.in_([copy_a, copy_b])).values(is_active=False))
     assert current(db_conn) == [alone]  # every copy closed: the job is gone
+
+
+def _enrich(
+    conn: Connection,
+    run_id: uuid.UUID,
+    posting_id: int,
+    company: str,
+    title: str,
+    status: str = "ok",
+    latam: str = "unknown",
+) -> None:
+    """A minimal enrichment row carrying the LLM's company and title as a dedup key."""
+    fields = {
+        "seniority": "senior",
+        "role_family": "backend",
+        "employment_type": "full_time",
+        "remote": "remote",
+    }
+    fields |= {"latam_hiring": latam, "salary_basis": "unknown", "summary": "…"}
+    if status != "ok":
+        fields = {"seniority": None, "role_family": None, "summary": None}
+    conn.execute(
+        insert(PostingEnrichment).values(
+            posting_id=posting_id,
+            source_content_hash="x",
+            prompt_version="v3",
+            provider="fake",
+            model="fake-model",
+            status=status,
+            dedup_key=dedup_key(company, title),
+            last_run_id=run_id,
+            **fields,
+        )
+    )
+
+
+def test_hn_posting_links_through_its_enrichment(db_conn: Connection, run_id: uuid.UUID) -> None:
+    """HN has no company/title in the source; the enrichment's key lets it link to another board."""
+    board = add(db_conn, run_id, Source.GETONBOARD, "Acme", "Data Engineer", days=0)
+    hn = add(db_conn, run_id, Source.HN, None, "", days=1)
+    _enrich(db_conn, run_id, hn, "Acme Inc.", "Data Engineer")
+
+    counts = link_duplicates(db_conn)
+
+    assert counts.exact_pairs == 1
+    assert canonical_of(db_conn, hn) == board
+
+
+def test_failed_enrichment_key_is_ignored(db_conn: Connection, run_id: uuid.UUID) -> None:
+    add(db_conn, run_id, Source.GETONBOARD, "Acme", "Data Engineer")
+    hn = add(db_conn, run_id, Source.HN, None, "", days=1)
+    _enrich(db_conn, run_id, hn, "Acme", "Data Engineer", status="failed")
+
+    assert link_duplicates(db_conn).exact_pairs == 0
+
+
+def test_contradicting_latam_eligibility_is_never_grouped(db_conn: Connection, run_id: uuid.UUID) -> None:
+    """Same company and title, but US-only vs LATAM: different jobs for a candidate in LATAM.
+
+    The "unknown" copy matches both. Without the group check, union-find would join all three
+    through it (A~B, B~C); with it, the unknown copy joins one side and the other stays alone.
+    """
+    us = add(db_conn, run_id, Source.HN, "Acme", "Data Engineer")
+    latam = add(db_conn, run_id, Source.HIMALAYAS, "Acme", "Data Engineer", days=1)
+    unknown = add(db_conn, run_id, Source.JOBICY, "Acme", "Data Engineer", days=2)
+    _enrich(db_conn, run_id, us, "Acme", "Data Engineer", latam="no")
+    _enrich(db_conn, run_id, latam, "Acme", "Data Engineer", latam="yes")
+    _enrich(db_conn, run_id, unknown, "Acme", "Data Engineer", latam="unknown")
+
+    counts = link_duplicates(db_conn)
+
+    # 3 matching pairs; 2 refused: yes~no directly, and the unknown copy's pair with the second
+    # side once it has joined the first.
+    assert (counts.exact_pairs, counts.groups, counts.blocked) == (3, 1, 2)
+    group_of = {p: canonical_of(db_conn, p) or p for p in (us, latam, unknown)}
+    assert group_of[us] != group_of[latam]
+    assert link_duplicates(db_conn).changed == 0  # deterministic: a second run agrees
+
+
+def test_source_key_wins_over_the_enrichment_key(db_conn: Connection, run_id: uuid.UUID) -> None:
+    """A posting whose source gives company and title keeps that key, whatever the LLM extracted."""
+    board = add(db_conn, run_id, Source.GETONBOARD, "Acme", "Data Engineer")
+    other = add(db_conn, run_id, Source.JOBICY, "Globex", "ML Engineer", days=1)
+    _enrich(db_conn, run_id, other, "Acme", "Data Engineer")  # LLM disagrees with the source: ignored
+
+    assert link_duplicates(db_conn).exact_pairs == 0
+    assert canonical_of(db_conn, other) is None
+    assert canonical_of(db_conn, board) is None

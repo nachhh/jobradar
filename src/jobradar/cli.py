@@ -16,6 +16,7 @@ from jobradar.config import get_settings
 from jobradar.db import check_database, get_engine
 from jobradar.enrich import pipeline as enrich_pipeline
 from jobradar.ingest import pipeline
+from jobradar.ingest.link import link_duplicates
 from jobradar.ledger import RunLockedError
 from jobradar.llm import MissingApiKeyError, make_provider
 from jobradar.models import LlmCall, PipelineRun, PipelineRunSource, RunStatus, Source, Trigger
@@ -33,8 +34,10 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
-    # httpx logs every request at INFO; keep those for debugging only.
+    # httpx (and httpx2, its fork used by the Anthropic SDK) log every request at INFO; keep those
+    # for debugging only.
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpx2").setLevel(logging.WARNING)
 
 
 @app.command()
@@ -142,6 +145,17 @@ def enrich(
     _print_runs(limit=1, run_id=result.run_id)
     if result.status != RunStatus.SUCCEEDED:
         raise typer.Exit(code=1)
+
+
+@app.command()
+def link() -> None:
+    """Re-run cross-source linking over all postings (also runs after every ingest and enrich)."""
+    with get_engine().begin() as conn:
+        counts = link_duplicates(conn)
+    typer.echo(
+        f"{counts.exact_pairs} exact and {counts.fuzzy_pairs} fuzzy pairs, {counts.groups} groups, "
+        f"{counts.changed} postings (re)linked, {counts.blocked} pairs blocked (LATAM yes vs no)"
+    )
 
 
 @app.command()

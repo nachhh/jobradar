@@ -25,7 +25,7 @@ from sqlalchemy import Connection, Engine, Row, Select, Update, func, select, te
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from jobradar.ingest.http import Fetcher, make_client
-from jobradar.ingest.link import link_duplicates
+from jobradar.ingest.link import relink
 from jobradar.ingest.sources import EXTRACTORS
 from jobradar.ingest.sources.base import Extractor, RawRecord
 from jobradar.ingest.transform import TransformCounts, transform_source
@@ -103,7 +103,7 @@ def run_ingest(
         logger.info("run %s started: %s", run_id, ", ".join(to_run))
         for source in to_run:
             _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
-        _link(engine)
+        relink(engine)
         return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
 
 
@@ -136,7 +136,7 @@ def resume_ingest(
                 _transform(engine, run_id, source)
             elif source in allowed:
                 _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
-        _link(engine)
+        relink(engine)
         return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
 
 
@@ -156,7 +156,7 @@ def rebuild(engine: Engine, sources: Sequence[Source] = tuple(Source)) -> RunRes
                     _record_counts(conn, run_id, source, counts, succeeded=True)
             except Exception as exc:
                 _fail_source(engine, run_id, source, exc)
-        _link(engine)  # a parser fix can change dedup keys
+        relink(engine)  # a parser fix can change dedup keys
         return RunResult(run_id, _finish_run(engine, run_id))
 
 
@@ -215,26 +215,6 @@ def _transform(engine: Engine, run_id: uuid.UUID, source: Source) -> None:
         )
     except Exception as exc:
         _fail_source(engine, run_id, source, exc)
-
-
-def _link(engine: Engine) -> None:
-    """Stage 3, over all of `postings` (not just this run's), in its own transaction.
-
-    A failure here is logged but doesn't fail the run: the postings are loaded correctly either
-    way, and the next run links again from scratch (link_duplicates is idempotent).
-    """
-    try:
-        with engine.begin() as conn:
-            counts = link_duplicates(conn)
-        logger.info(
-            "linking: %d exact and %d fuzzy pairs, %d groups, %d postings (re)linked",
-            counts.exact_pairs,
-            counts.fuzzy_pairs,
-            counts.groups,
-            counts.changed,
-        )
-    except Exception:
-        logger.exception("linking failed; postings are loaded, links will be retried next run")
 
 
 def load_raw(conn: Connection, run_id: uuid.UUID, source: Source, records: Sequence[RawRecord]) -> int:

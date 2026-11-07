@@ -33,6 +33,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from jobradar.enrich.grounding import apply_grounding
 from jobradar.enrich.prompt import INSTRUCTIONS, PROMPT_VERSION, build_posting_text
 from jobradar.enrich.schema import EnrichmentOut
+from jobradar.ingest.link import relink
 from jobradar.ingest.text import dedup_key
 from jobradar.ledger import advisory_lock, finish_run, lock_id, start_run
 from jobradar.llm.base import (
@@ -64,10 +65,10 @@ LOCK_ID = lock_id("jobradar.enrich")
 MAX_ATTEMPTS = 3  # failed answers on the same content and prompt before a posting is skipped
 MAX_CONSECUTIVE_ERRORS = 5  # API errors in a row before the run gives up (the provider is down)
 
-# Rough per-posting figures for --dry-run, from the first live calls: the cached prefix
-# (instructions + schema) and the answer, including some thinking.
-EST_CACHED_TOKENS = 3300
-EST_OUTPUT_TOKENS = 450
+# Rough per-posting figures for --dry-run, measured on the full backfill (2,659 postings, prompt v3):
+# the cached prefix (instructions + schema) and the answer, including some thinking.
+EST_CACHED_TOKENS = 3700
+EST_OUTPUT_TOKENS = 545
 
 # The columns find_stale() reads: what build_posting_text() needs, plus the staleness inputs.
 _POSTING_COLUMNS = (
@@ -216,6 +217,9 @@ def run_enrich(
         else:
             status = RunStatus.SUCCEEDED
         finish_run(engine, run_id, status)
+        if counts.ok:
+            # New enrichments can carry dedup keys (HN company and title): link them across boards.
+            relink(engine)
         logger.info(
             "enrich run %s: %s (ok %d, ungrounded %d, failed %d, errors %d, %d calls, $%s)",
             run_id,

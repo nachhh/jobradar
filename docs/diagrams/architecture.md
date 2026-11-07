@@ -15,7 +15,7 @@ flowchart LR
 
     CRON(["cron<br/>08:00 and 20:00"]) --> CLI
     YOU(["you"]) --> CLI
-    CLI["CLI (Typer)<br/>ingest · transform --rebuild · enrich · runs"] --> PIPE
+    CLI["CLI (Typer)<br/>ingest · transform --rebuild · enrich · link · runs"] --> PIPE
     CLI --> ENRICH
 
     subgraph app["Python: jobradar.ingest"]
@@ -23,7 +23,7 @@ flowchart LR
         PIPE["pipeline.py<br/>run_ingest · resume_ingest · rebuild<br/>advisory lock, fetch intervals, checks"]
         S1["Stage 1: extract-load<br/>Fetcher (httpx: retries, backoff, polite interval)<br/>extract() per source → load_raw (COPY)"]
         S2["Stage 2: transform<br/>parse() per source → PostingIn (Pydantic)<br/>upsert, quarantine, closed postings"]
-        S3["Stage 3: link duplicates<br/>blocking + pg_trgm similarity + union-find"]
+        S3["Stage 3: link duplicates (link.py)<br/>keys from the source, else the enrichment<br/>blocking + pg_trgm similarity + union-find"]
         PIPE --> S1 --> S2 --> S3
     end
 
@@ -63,6 +63,7 @@ flowchart LR
     S3 -- "canonical_id" --> CLEAN
     CLEAN -- "stale active postings" --> ENRICH
     ENRICH -- "one transaction per posting" --> ENR
+    ENRICH -- "relink when done" --> S3
     EVIEW -. "next: embeddings, search" .-> NEXT(["next steps"])
 ```
 

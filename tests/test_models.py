@@ -270,8 +270,25 @@ def test_enriched_postings_prefers_source_values(db_conn: Connection) -> None:
     hn = rows[hn_id]
     assert (hn.resolved_company, hn.resolved_title) == ("Acme", "Data Engineer")  # LLM fills the gaps
     assert (hn.resolved_salary_min, hn.resolved_salary_max) == (4000, None)  # source salary, not mixed
-    assert hn.resolved_remote == "remote"  # source said "unknown", so the LLM's value is used
+    assert hn.remote_modes == ["remote"]  # source said "unknown", so the LLM's value is used
     assert hn.seniority_level == "senior"
 
     assert rows[failed_id].resolved_company == "Globex"
     assert rows[failed_id].enrichment_status is None  # failed counts as not enriched
+    assert rows[failed_id].remote_modes == ["unknown"]
+
+
+def test_remote_conflict_counts_as_both(db_conn: Connection) -> None:
+    """Board says remote, the posting's text says hybrid: the job matches either search."""
+    run_id = _new_run(db_conn)
+    posting_id = _new_posting(db_conn, run_id, remote="remote")
+    db_conn.execute(insert(PostingEnrichment).values(_enrichment(posting_id, run_id, remote="hybrid")))
+
+    row = db_conn.execute(
+        text("SELECT remote_modes FROM enriched_postings WHERE id = :id"), {"id": posting_id}
+    ).one()
+
+    assert row.remote_modes == ["remote", "hybrid"]  # the board's value first
+    matches = "SELECT count(*) FROM enriched_postings WHERE :mode = ANY(remote_modes)"
+    assert db_conn.execute(text(matches), {"mode": "remote"}).scalar_one() == 1
+    assert db_conn.execute(text(matches), {"mode": "hybrid"}).scalar_one() == 1
