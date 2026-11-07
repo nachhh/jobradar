@@ -1,6 +1,6 @@
 # Architecture
 
-What runs where: ingestion (Phase 1) and LLM enrichment (Phase 2, so far). Retrieval and the agent come next, on top of the same Postgres database (see the [project overview](../../specs/00-overview.md)).
+What runs where: ingestion (Phase 1), LLM enrichment and indexing (Phase 2, so far). Search and the agent come next, on top of the same Postgres database (see the [project overview](../../specs/00-overview.md)).
 
 ```mermaid
 flowchart LR
@@ -15,8 +15,9 @@ flowchart LR
 
     CRON(["cron<br/>08:00 and 20:00"]) --> CLI
     YOU(["you"]) --> CLI
-    CLI["CLI (Typer)<br/>ingest · transform --rebuild · enrich · link · runs"] --> PIPE
+    CLI["CLI (Typer)<br/>ingest · transform --rebuild · enrich · index · link · runs"] --> PIPE
     CLI --> ENRICH
+    CLI --> INDEXER
 
     subgraph app["Python: jobradar.ingest"]
         direction TB
@@ -43,6 +44,13 @@ flowchart LR
     end
     PROVIDER -- "HTTPS / JSON schema" --> llms
 
+    subgraph retrieval["Python: jobradar.retrieval (local, no API)"]
+        direction TB
+        INDEXER["indexer.py<br/>stale postings (fingerprint) → chunks + header"]
+        EMB["embeddinggemma-300m<br/>fastembed / ONNX Runtime, CPU"]
+        INDEXER --> EMB
+    end
+
     subgraph pg["Postgres 17 + pgvector + pg_trgm (Docker)"]
         direction TB
         LEDGER[("pipeline_runs<br/>pipeline_run_sources")]
@@ -50,6 +58,7 @@ flowchart LR
         CLEAN[("postings<br/>rejected_postings")]
         VIEW[["view: current_postings"]]
         ENR[("posting_enrichments<br/>llm_calls")]
+        CHUNKS[("posting_chunks<br/>tsvector + vector(768)")]
         EVIEW[["view: enriched_postings"]]
         CLEAN --> VIEW
         VIEW --> EVIEW
@@ -64,7 +73,10 @@ flowchart LR
     CLEAN -- "stale active postings" --> ENRICH
     ENRICH -- "one transaction per posting" --> ENR
     ENRICH -- "relink when done" --> S3
-    EVIEW -. "next: embeddings, search" .-> NEXT(["next steps"])
+    CLEAN -- "active postings" --> INDEXER
+    ENR -- "header fields" --> INDEXER
+    INDEXER -- "one transaction per batch" --> CHUNKS
+    CHUNKS -. "next: hybrid search" .-> NEXT(["next steps"])
 ```
 
 ## Reading it
@@ -73,6 +85,7 @@ flowchart LR
 - **The lock** is a Postgres advisory lock held for the whole run, so a second run started meanwhile exits at once.
 - **Each stage of each source is its own transaction**, so a failure or a crash undoes only the stage it hit (see [state machines](state-machines.md)).
 - **Enrichment runs separately** (`jobradar enrich`), with its own advisory lock, so it can run alongside an ingest. It only reads what ingestion wrote and never changes `postings` ([ADR-0003](../adr/0003-llm-provider-and-structured-outputs.md)).
+- **Indexing runs locally** (`jobradar index`): the embedding model runs on the CPU, so re-indexing costs time, not money ([ADR-0004](../adr/0004-local-embeddings.md)).
 - **Everything lives in one database** ([ADR-0002](../adr/0002-postgres-with-pgvector.md)): the ledger, the raw and clean layers, and later the embeddings.
 
-Code: [cli.py](../../src/jobradar/cli.py), [pipeline.py](../../src/jobradar/ingest/pipeline.py), [enrich/](../../src/jobradar/enrich/), [llm/](../../src/jobradar/llm/), [ledger.py](../../src/jobradar/ledger.py), [http.py](../../src/jobradar/ingest/http.py), [sources/](../../src/jobradar/ingest/sources/), [transform.py](../../src/jobradar/ingest/transform.py), [link.py](../../src/jobradar/ingest/link.py).
+Code: [cli.py](../../src/jobradar/cli.py), [pipeline.py](../../src/jobradar/ingest/pipeline.py), [enrich/](../../src/jobradar/enrich/), [llm/](../../src/jobradar/llm/), [ledger.py](../../src/jobradar/ledger.py), [retrieval/](../../src/jobradar/retrieval/), [http.py](../../src/jobradar/ingest/http.py), [sources/](../../src/jobradar/ingest/sources/), [transform.py](../../src/jobradar/ingest/transform.py), [link.py](../../src/jobradar/ingest/link.py).

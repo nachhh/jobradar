@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     enrich_concurrency: int = 4
     enrich_max_calls: int = 3000
 
+    # Where fastembed keeps the downloaded embedding model (~1.2 GB). Inside the project so it's
+    # easy to find and delete; git-ignored.
+    fastembed_cache_path: str = ".cache/fastembed"
+
     # Job sources (Phase 1). Optional: without it, Himalayas requests share a public allowance with
     # every other keyless caller. Free key: https://himalayas.app/api-keys
     himalayas_api_key: SecretStr | None = None

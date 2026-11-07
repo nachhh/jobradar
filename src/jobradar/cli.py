@@ -19,7 +19,9 @@ from jobradar.ingest import pipeline
 from jobradar.ingest.link import link_duplicates
 from jobradar.ledger import RunLockedError
 from jobradar.llm import MissingApiKeyError, make_provider
-from jobradar.models import LlmCall, PipelineRun, PipelineRunSource, RunStatus, Source, Trigger
+from jobradar.models import LlmCall, PipelineRun, PipelineRunSource, PostingChunk, RunStatus, Source, Trigger
+from jobradar.retrieval import indexer
+from jobradar.retrieval.embed import FastEmbedder
 
 app = typer.Typer(help="JobRadar: job-market intelligence over public job postings.", no_args_is_help=True)
 
@@ -148,6 +150,32 @@ def enrich(
 
 
 @app.command()
+def index(
+    limit: Annotated[int | None, typer.Option(help="Index at most this many postings.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Count the postings to index.")] = False,
+    trigger: Annotated[Trigger, typer.Option(help="Recorded in the ledger; cron passes 'scheduled'.")] = (
+        Trigger.MANUAL
+    ),
+) -> None:
+    """Chunk and embed active postings whose chunks are missing or out of date (local model, no cost)."""
+    settings = get_settings()
+    embedder = FastEmbedder(cache_dir=settings.fastembed_cache_path)
+    if dry_run:
+        stale = indexer.find_stale(get_engine(), embedder.model, limit)
+        typer.echo(f"{len(stale)} postings to index with {embedder.model}")
+        return
+    try:
+        result = indexer.run_index(get_engine(), embedder, limit=limit, trigger=trigger)
+    except indexer.NothingToIndexError as exc:
+        typer.echo(str(exc))
+        return
+    except RunLockedError as exc:
+        typer.secho(str(exc), fg="yellow", err=True)
+        raise typer.Exit(code=1) from exc
+    _print_runs(limit=1, run_id=result.run_id)
+
+
+@app.command()
 def link() -> None:
     """Re-run cross-source linking over all postings (also runs after every ingest and enrich)."""
     with get_engine().begin() as conn:
@@ -179,6 +207,19 @@ def _print_runs(limit: int, run_id: uuid.UUID | None = None) -> None:
             .where(PipelineRunSource.run_id.in_([r.run_id for r in run_rows]))
             .order_by(PipelineRunSource.started_at)
         ).all()
+        # Index totals per run: chunks (and their postings) written by it, by last_run_id.
+        chunk_rows = {
+            row.run_id: row
+            for row in conn.execute(
+                select(
+                    PostingChunk.last_run_id.label("run_id"),
+                    func.count(func.distinct(PostingChunk.posting_id)).label("postings"),
+                    func.count().label("chunks"),
+                )
+                .where(PostingChunk.last_run_id.in_([r.run_id for r in run_rows]))
+                .group_by(PostingChunk.last_run_id)
+            ).all()
+        }
         # LLM totals per run: SUMs over llm_calls (never stored on the run itself).
         llm_rows = {
             row.run_id: row
@@ -208,6 +249,8 @@ def _print_runs(limit: int, run_id: uuid.UUID | None = None) -> None:
         skipped = run.params.get("skipped") or []
         if skipped:
             typer.echo(f"    skipped: {', '.join(skipped)}")
+        if (chunked := chunk_rows.get(run.run_id)) is not None:
+            typer.echo(f"    {chunked.postings} postings indexed in {chunked.chunks} chunks (still current)")
         if (llm := llm_rows.get(run.run_id)) is not None:
             typer.echo(
                 f"    {run.params.get('stale', '?')} stale  {llm.calls} calls ({llm.ok} ok)  "

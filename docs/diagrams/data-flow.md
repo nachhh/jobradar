@@ -1,6 +1,6 @@
 # Data flow
 
-How postings travel from an API response to the views that search and the agent read: first ingestion, then LLM enrichment. Boxes are data; arrows are the code that moves it.
+How postings travel from an API response to what search reads: ingestion, LLM enrichment, then indexing. Boxes are data; arrows are the code that moves it.
 
 ## Ingestion (one source in a run)
 
@@ -84,3 +84,30 @@ flowchart TB
 - Each posting's calls and result are committed in one transaction.
 
 Code: [enrich/pipeline.py](../../src/jobradar/enrich/pipeline.py), [enrich/schema.py](../../src/jobradar/enrich/schema.py), [enrich/grounding.py](../../src/jobradar/enrich/grounding.py), [llm/](../../src/jobradar/llm/).
+
+## Indexing
+
+What `jobradar index` does with each active posting whose chunks are missing or out of date.
+
+```mermaid
+flowchart TB
+    POST[("postings + posting_enrichments<br/>active postings")]
+    HEAD["header<br/>title at company · seniority · role · remote · LATAM<br/>Skills: …"]
+    FP{"fingerprint changed?<br/>model, chunker version,<br/>content_hash, header"}
+    SKIP["skip: chunks up to date"]
+    CHUNKS["chunks of ≤ 300 tokens<br/>lines, then sentences; one line of overlap"]
+    EMB[/"embeddinggemma (local)<br/>title: … | text: header + chunk"/]
+    STORE[("posting_chunks<br/>text · tsv (simple + unaccent) · vector(768)")]
+
+    POST -- "source values first, LLM fills gaps" --> HEAD
+    HEAD --> FP
+    FP -- "no" --> SKIP
+    FP -- "yes" --> CHUNKS
+    CHUNKS --> EMB
+    EMB -- "delete old chunks, insert new:<br/>one transaction per batch" --> STORE
+```
+
+- Every active posting is indexed, not only each group's representative; search de-duplicates through `current_postings` at query time.
+- Inactive postings keep their chunks (search filters them out), so a posting that reopens needs no re-embedding.
+
+Code: [retrieval/indexer.py](../../src/jobradar/retrieval/indexer.py), [retrieval/chunk.py](../../src/jobradar/retrieval/chunk.py), [retrieval/embed.py](../../src/jobradar/retrieval/embed.py).
