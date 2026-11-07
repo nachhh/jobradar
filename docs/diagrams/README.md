@@ -5,7 +5,7 @@ Written in [Mermaid](https://mermaid.js.org/): diagrams as text inside Markdown,
 | Diagram | Shows |
 |---|---|
 | [Architecture](architecture.md) | Components and where they run: job APIs, LLM APIs, CLI, pipelines, database |
-| [Data flow](data-flow.md) | How a posting travels from an API response to `current_postings`, through LLM enrichment and into the search index |
+| [Data flow](data-flow.md) | How a posting travels from an API response to `current_postings`, through LLM enrichment and the search index, to a search result |
 | [Entity-relationship](erd.md) | Tables, columns and relationships |
 | [State machines](state-machines.md) | Lifecycles of a source within a run, a run, a posting, and its enrichment |
 

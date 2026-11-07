@@ -19,9 +19,23 @@ from jobradar.ingest import pipeline
 from jobradar.ingest.link import link_duplicates
 from jobradar.ledger import RunLockedError
 from jobradar.llm import MissingApiKeyError, make_provider
-from jobradar.models import LlmCall, PipelineRun, PipelineRunSource, PostingChunk, RunStatus, Source, Trigger
+from jobradar.models import (
+    LlmCall,
+    PipelineRun,
+    PipelineRunSource,
+    PostingChunk,
+    Remote,
+    RoleFamily,
+    RunStatus,
+    Seniority,
+    Source,
+    Trigger,
+)
 from jobradar.retrieval import indexer
 from jobradar.retrieval.embed import FastEmbedder
+from jobradar.retrieval.rerank import FastReranker
+from jobradar.retrieval.search import SearchFilters
+from jobradar.retrieval.search import search as hybrid_search
 
 app = typer.Typer(help="JobRadar: job-market intelligence over public job postings.", no_args_is_help=True)
 
@@ -173,6 +187,59 @@ def index(
         typer.secho(str(exc), fg="yellow", err=True)
         raise typer.Exit(code=1) from exc
     _print_runs(limit=1, run_id=result.run_id)
+
+
+@app.command()
+def search(
+    query: Annotated[
+        str, typer.Argument(help='What you are looking for, e.g. "data engineer spark airflow".')
+    ],
+    remote: Annotated[Remote | None, typer.Option(help="Only jobs offered with this work mode.")] = None,
+    seniority: Annotated[list[Seniority] | None, typer.Option(help="Only these levels (repeatable).")] = None,
+    role: Annotated[
+        list[RoleFamily] | None, typer.Option(help="Only these role families (repeatable).")
+    ] = None,
+    latam: Annotated[bool, typer.Option("--latam", help="Only jobs that hire from Latin America.")] = False,
+    limit: Annotated[int, typer.Option(help="How many results.")] = 10,
+    rerank: Annotated[bool, typer.Option(help="Re-order with the cross-encoder (slower, ~10 s).")] = True,
+    explain: Annotated[
+        bool, typer.Option("--explain", help="Show each result's keyword and vector ranks.")
+    ] = False,
+) -> None:
+    """Search the postings: keyword + vector search, fused with RRF, then reranked."""
+    settings = get_settings()
+    filters = SearchFilters(
+        remote=remote.value if remote else None,
+        seniority=[s.value for s in seniority or []],
+        roles=[r.value for r in role or []],
+        latam=latam,
+    )
+    hits = hybrid_search(
+        get_engine(),
+        query,
+        FastEmbedder(cache_dir=settings.fastembed_cache_path),
+        filters=filters,
+        limit=limit,
+        reranker=FastReranker(cache_dir=settings.fastembed_cache_path) if rerank else None,
+    )
+    if not hits:
+        typer.echo("No matching postings.")
+        return
+    for position, hit in enumerate(hits, 1):
+        score = (
+            f"rerank {hit.rerank_score:6.2f}" if hit.rerank_score is not None else f"rrf {hit.rrf_score:.4f}"
+        )
+        title = typer.style(hit.title or "(untitled)", bold=True)
+        typer.echo(f"{position:>2}. {title} at {hit.company or '?'}  [{hit.source}]  {score}")
+        details = [f"LATAM {hit.latam_hiring or '?'}", "/".join(hit.remote_modes)]
+        if hit.salary:
+            details.append(hit.salary)
+        typer.echo(f"    {' · '.join(details)}  {hit.url}")
+        if hit.summary:
+            typer.echo(f"    {hit.summary}")
+        if explain:
+            ranks = f"keyword rank {hit.keyword_rank or '-'}, vector rank {hit.vector_rank or '-'}"
+            typer.echo(f"    {ranks}, rrf {hit.rrf_score:.4f}")
 
 
 @app.command()

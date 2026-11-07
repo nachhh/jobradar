@@ -157,11 +157,11 @@ Each chunk row stores an `index_fingerprint`: a hash of the posting's `content_h
 
 1. **Embed the query** with the same model (and the query prefix).
 2. **One SQL query** with two CTEs, each returning the top 20 **chunks**:
-   - keyword: `websearch_to_tsquery('simple', unaccent(query))`, ranked by `ts_rank`;
+   - keyword: the query's words minus a small English and Spanish stopword list, OR-ed (`to_tsquery('simple', unaccent('data | engineer | spark'))`), ranked by `ts_rank`, which rewards matching more of the words. Requiring every word (`websearch_to_tsquery`) would make natural-language queries match almost nothing; `simple` has no stopword list of its own;
    - vector: ordered by `embedding <=> query_vector` (cosine distance);
    - **filters inside both CTEs**: active postings, group representatives only (joined to `current_postings`), plus the CLI filters. Filtering after the merge could leave almost nothing.
 3. **Collapse chunks to postings** (best rank per posting), then **RRF**: score = Σ 1 / (60 + rank) over the two lists, with the CTEs combined through a `FULL OUTER JOIN` rather than a scan of the chunks table.
-4. **Rerank** (D3): the top 20 postings, each as (query, best-matching chunk), scored by the cross-encoder and re-sorted.
+4. **Rerank** (D3): the top 20 postings, each as (query, the first 600 characters of its best-matching chunk), scored by the cross-encoder and re-sorted. The cross-encoder's cost grows with input length: full chunks took ~18 s for 20, the first 600 characters (header plus the start of the chunk) ~6 s.
 5. **Output:** rank, title, company, source, LATAM, remote, salary if any, the RRF and rerank scores, and the URL. `--explain` adds each posting's keyword and vector ranks.
 
 Search is a plain function (`search(conn, query, filters, …) → list[SearchHit]`), which Phase 3's agent will call as a tool.
@@ -217,7 +217,7 @@ Answering questions with retrieved context and matching against a resume (Phase 
 3. The owner reviews 20 random enrichments next to their postings: at least 90% of fields are correct, and `latam_hiring` is right in at least 18 of 20.
 4. HN postings show company and title through `enriched_postings`, and at least one HN posting is linked to a copy on another board, or the report explains why none are.
 5. `jobradar index` indexes every active posting; running it again embeds nothing.
-6. `jobradar search` returns relevant results with scores, in under 15 s with reranking and under 3 s without. The mini-eval table reports precision@5 for keyword, vector, hybrid and hybrid + rerank.
+6. `jobradar search` returns relevant results with scores. With the models loaded (the case of a long-lived process: the Phase 3 agent, the Phase 5 API), `search()` takes under 10 s with reranking and under 3 s without; the cold CLI time (process start plus model loading, ~7 s) is reported next to it. The mini-eval table reports precision@5 for keyword, vector, hybrid and hybrid + rerank. (Restated on 2026-11-07: the first version timed the cold CLI, which mostly measured model loading.)
 7. `make check` passes locally and in CI.
 
 ## Steps
@@ -232,7 +232,7 @@ Commits name their step: `[jobradar][p2][s<N>] <description>`. Diagrams and ADRs
 | s3 | Short introduction to evals. Enrich pipeline and CLI (`enrich`, `--dry-run`, `--limit`, `--source`); a 50-posting trial run and the owner's spot check; then the full backfill. Prompt caching and Gemini's schema fixed after the first live calls (`43e699a`) | Done (`823a392`). Owner spot check of v1: 97.0% of fields, LATAM 20/20; v3 re-check of the changed fields held. Backfill (run `6e0ecf06`): 2,659/2,659 ok, 0 failed, 13 ungrounded, $1.19 in 54 min; $1.25 for all enrichment so far. Re-run: 0 calls |
 | s4 | HN linking through the enrichment's `dedup_key`; re-link after enrich (shared `relink()`, serialized by a transaction-level advisory lock); `jobradar link` | Done. On real data: 0 HN links. Only 2 of ~420 HN companies appear on another board; the one plausible duplicate (Perry Street Software, "Senior Mobile Developer (iOS)" vs "… (iOS/Android) - LATAM") scores 0.62 on title similarity, below 0.8 |
 | s5 | Chunking, embeddings and the index pipeline (`index`), `onnxruntime` pin; ADR-0004 (local embeddings) | Built. Full index (run `b6807934`): 2,709 postings, 7,478 chunks (2.8 per posting, at most 9), 53 min on CPU; re-run: nothing to index. Done |
-| s6 | Hybrid search with RRF, filters and reranking; `search` CLI | Not started |
+| s6 | Hybrid search with RRF, filters and reranking; `search` CLI | Done. Search SQL ~0.5 s; reranking 20 results ~6 s (input cut to 600 characters, from ~18 s); a cold CLI run adds ~7 s of model loading |
 | s7 | Mini retrieval eval, acceptance run on real data, crontab line, README, diagrams | Not started |
 
 ## Decisions

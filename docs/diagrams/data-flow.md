@@ -1,6 +1,6 @@
 # Data flow
 
-How postings travel from an API response to what search reads: ingestion, LLM enrichment, then indexing. Boxes are data; arrows are the code that moves it.
+How postings travel from an API response to a search result: ingestion, LLM enrichment, indexing, then search. Boxes are data; arrows are the code that moves it.
 
 ## Ingestion (one source in a run)
 
@@ -111,3 +111,33 @@ flowchart TB
 - Inactive postings keep their chunks (search filters them out), so a posting that reopens needs no re-embedding.
 
 Code: [retrieval/indexer.py](../../src/jobradar/retrieval/indexer.py), [retrieval/chunk.py](../../src/jobradar/retrieval/chunk.py), [retrieval/embed.py](../../src/jobradar/retrieval/embed.py).
+
+## Search
+
+What `jobradar search "<query>"` does. Everything up to the fusion is one SQL statement.
+
+```mermaid
+flowchart TB
+    Q[/"query text"/]
+    TERMS["keyword terms<br/>words minus stopwords, OR-ed"]
+    VEC["query vector<br/>embeddinggemma, query prefix"]
+    ELIG[("eligible postings<br/>enriched_postings: active, one per job group,<br/>remote / seniority / role / LATAM filters")]
+    KW["keyword top 20<br/>tsv @@ terms, ts_rank, best chunk per posting"]
+    VS["vector top 20<br/>cosine distance, best chunk per posting"]
+    RRF["RRF: 1/(60 + rank) summed over both lists<br/>top 20 postings"]
+    RR["rerank: cross-encoder reads<br/>(query, first 600 chars of the best chunk)"]
+    OUT[/"results: title, company, LATAM, remote, salary, summary, url"/]
+
+    Q --> TERMS
+    Q --> VEC
+    TERMS --> KW
+    VEC --> VS
+    ELIG --> KW
+    ELIG --> VS
+    KW --> RRF
+    VS --> RRF
+    RRF --> RR
+    RR --> OUT
+```
+
+Code: [retrieval/search.py](../../src/jobradar/retrieval/search.py), [retrieval/rerank.py](../../src/jobradar/retrieval/rerank.py).

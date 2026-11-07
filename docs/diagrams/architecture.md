@@ -1,6 +1,6 @@
 # Architecture
 
-What runs where: ingestion (Phase 1), LLM enrichment and indexing (Phase 2, so far). Search and the agent come next, on top of the same Postgres database (see the [project overview](../../specs/00-overview.md)).
+What runs where: ingestion (Phase 1), LLM enrichment, indexing and search (Phase 2). The agent comes next, on top of the same Postgres database (see the [project overview](../../specs/00-overview.md)).
 
 ```mermaid
 flowchart LR
@@ -15,9 +15,10 @@ flowchart LR
 
     CRON(["cron<br/>08:00 and 20:00"]) --> CLI
     YOU(["you"]) --> CLI
-    CLI["CLI (Typer)<br/>ingest · transform --rebuild · enrich · index · link · runs"] --> PIPE
+    CLI["CLI (Typer)<br/>ingest · transform --rebuild · enrich · index · search · link · runs"] --> PIPE
     CLI --> ENRICH
     CLI --> INDEXER
+    CLI --> SEARCH
 
     subgraph app["Python: jobradar.ingest"]
         direction TB
@@ -48,7 +49,11 @@ flowchart LR
         direction TB
         INDEXER["indexer.py<br/>stale postings (fingerprint) → chunks + header"]
         EMB["embeddinggemma-300m<br/>fastembed / ONNX Runtime, CPU"]
+        SEARCH["search.py<br/>keyword + vector, filters, RRF"]
+        RERANK["bge-reranker-v2-m3 (int8)<br/>cross-encoder, top 20"]
         INDEXER --> EMB
+        SEARCH -- "embed the query" --> EMB
+        SEARCH --> RERANK
     end
 
     subgraph pg["Postgres 17 + pgvector + pg_trgm (Docker)"]
@@ -76,7 +81,9 @@ flowchart LR
     CLEAN -- "active postings" --> INDEXER
     ENR -- "header fields" --> INDEXER
     INDEXER -- "one transaction per batch" --> CHUNKS
-    CHUNKS -. "next: hybrid search" .-> NEXT(["next steps"])
+    CHUNKS -- "one SQL query" --> SEARCH
+    EVIEW -- "filters, display fields" --> SEARCH
+    SEARCH -. "Phase 3: a tool of the agent" .-> NEXT(["next phase"])
 ```
 
 ## Reading it
