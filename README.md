@@ -2,13 +2,15 @@
 
 Job-market intelligence built like a data platform: it ingests job postings from public APIs into Postgres, enriches them with an LLM, indexes them for hybrid search, and runs a LangGraph agent that scores fit against a resume, finds skill gaps and drafts tailored resume bullets, with a human approving each step.
 
-> **Status:** Phase 1 (ingestion). See the [project overview](specs/00-overview.md) for the phases and the target architecture.
+> **Status:** Phase 2 (enrichment and retrieval); Phase 1 (ingestion) is done. See the [project overview](specs/00-overview.md) for the phases and the target architecture.
 
 ## Stack
 
 Python 3.12 · uv · Postgres 17 + pgvector · SQLAlchemy 2 · Alembic · Docker Compose · Ruff · pyright · pytest · pre-commit (gitleaks) · GitHub Actions
 
-Coming in later phases: LangGraph, LLM structured outputs (Gemini, Groq), local embeddings, hybrid search and reranking, Langfuse, FastAPI, MCP, Streamlit, PySpark.
+Phase 2 adds: Claude Haiku and Gemini (LLM structured outputs), fastembed with embeddinggemma (local embeddings), Postgres text search + pgvector (hybrid search with RRF), a cross-encoder reranker.
+
+Coming in later phases: LangGraph, Langfuse, FastAPI, MCP, Streamlit, PySpark.
 
 ## Getting started
 
@@ -32,8 +34,17 @@ uv run jobradar ingest                      # fetch every source, load raw, tran
 uv run jobradar ingest --source hn          # one source (repeatable)
 uv run jobradar ingest --resume RUN_ID      # finish a failed run without fetching again
 uv run jobradar transform --rebuild         # re-parse everything already fetched (after a parser fix)
-uv run jobradar runs                        # recent runs, per-source status and counts
+uv run jobradar enrich                      # LLM fields for new or changed postings (Claude Haiku, ~$0.0004 each)
+uv run jobradar enrich --dry-run            # how many postings would be enriched, and the estimated cost
+uv run jobradar index                       # chunks and embeddings for new or changed postings (local, free)
+uv run jobradar search "data engineer spark airflow" --latam --remote remote
+uv run jobradar search "…" --explain        # show each result's keyword and vector ranks
+uv run jobradar search "…" --rerank         # re-order with a cross-encoder (adds ~6 s)
+uv run jobradar link                        # re-run cross-source duplicate linking
+uv run jobradar runs                        # recent runs: per-source counts, LLM tokens and cost, chunks
 ```
+
+`enrich` needs `ANTHROPIC_API_KEY` in `.env` (or `LLM_PROVIDER=gemini` with `GEMINI_API_KEY`). `index` and `search` download their local models on first use (~1.8 GB in total, into `.cache/`). All three only process what changed since their last run, so running them again is cheap or free.
 
 Some sources limit how often they may be fetched (Remotive: every 6 h; Himalayas: every 20 h, its data refreshes daily; Jobicy: every hour), so `ingest` skips a source fetched more recently than that; `--force` overrides it.
 
@@ -43,13 +54,16 @@ Twice a day with `cron`, the Unix job scheduler. Edit your crontab with `crontab
 
 ```cron
 # m h dom mon dow  command   (here: 08:00 and 20:00 every day)
-0 8,20 * * * cd "$HOME/projects/jobradar" && "$HOME/.local/bin/uv" run jobradar ingest --trigger scheduled >> logs/ingest.log 2>&1
+0 8,20 * * * cd "$HOME/projects/jobradar" && for step in ingest enrich index; do "$HOME/.local/bin/uv" run jobradar $step --trigger scheduled; done >> logs/jobradar.log 2>&1
 ```
+
+- The three steps run in order, each whatever the previous one's exit code: `ingest` exits non-zero when any source fails (or all are skipped), but `enrich` and `index` only process what is stale, so running them is always safe and useful.
 
 - `cd` first: settings are read from `.env` in the project folder.
 - The full path to `uv`, because cron runs with a minimal `PATH` that doesn't include `~/.local/bin`.
-- `--trigger scheduled` is recorded in the run ledger; `>> logs/ingest.log 2>&1` appends output and errors to a git-ignored log (create it once with `mkdir -p logs`).
-- The database container must be running (`make up`). `ingest` exits non-zero unless the run succeeded, so failures show up in the log and in `jobradar runs`.
+- `--trigger scheduled` is recorded in the run ledger; `>> logs/jobradar.log 2>&1` appends output and errors to a git-ignored log (create it once with `mkdir -p logs`).
+- The database container must be running (`make up`). Each command exits non-zero unless its run succeeded, so failures show up in the log and in `jobradar runs`.
+- Cost: `enrich` spends a few cents a day on new and edited postings (see `jobradar runs`); `ENRICH_MAX_CALLS` caps a single run.
 - On macOS, cron doesn't run while the machine is asleep and doesn't catch up afterwards (`launchd` does, at the cost of a more verbose setup). For this project a missed run is harmless: the next one fetches everything again.
 
 ## Documentation
@@ -57,5 +71,6 @@ Twice a day with `cron`, the Unix job scheduler. Edit your crontab with `crontab
 | Document | Contents |
 |---|---|
 | [specs/](specs/) | Project overview and one spec per phase, written before the code |
+| [docs/diagrams/](docs/diagrams/) | Architecture, data flow, ERD and state machines (Mermaid) |
 | [docs/adr/](docs/adr/) | Architecture Decision Records |
 | [CLAUDE.md](CLAUDE.md) | Working rules for AI coding agents in this repository |

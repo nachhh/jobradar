@@ -21,6 +21,7 @@ from jobradar.ingest.http import Fetcher
 from jobradar.ingest.posting import PostingIn
 from jobradar.ingest.sources import PARSERS
 from jobradar.ingest.sources.base import Payload, RawRecord, make_record
+from jobradar.ledger import RunLockedError
 from jobradar.models import PipelineRunSource, Posting, RawPosting, RejectedPosting, RunStatus, Source
 
 pytestmark = pytest.mark.integration
@@ -168,6 +169,41 @@ def test_failed_transform_keeps_raw_and_resume_finishes_without_fetching(
     assert count(clean_db, Posting) == 9
 
 
+def test_interrupted_run_is_recorded_and_resumable(clean_db: Engine) -> None:
+    """Ctrl-C (or a kill) while HN is fetching: the finished sources stay, the run says so."""
+    extractors = fakes()
+
+    class Stopped(FakeExtractor):
+        def __call__(self, fetcher: Fetcher) -> list[RawRecord]:
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        ingest(clean_db, extractors | {Source.HN: Stopped(Source.HN, [])})
+
+    with clean_db.connect() as conn:
+        run_id, status = conn.execute(text("SELECT run_id, status FROM pipeline_runs")).one()
+    assert status == RunStatus.INTERRUPTED
+    rows = source_rows(clean_db, run_id)
+    assert rows["getonboard"].status == rows["remotive"].status == "succeeded"
+    assert (rows["hn"].status, rows["hn"].error_type) == ("failed", "Interrupted")
+
+    resumed = pipeline.resume_ingest(clean_db, run_id, extractors=extractors, make_fetcher=no_http)
+
+    assert resumed.status == RunStatus.SUCCEEDED
+    assert extractors[Source.HN].calls == 1  # fetched by the resume
+    assert extractors[Source.GETONBOARD].calls == 1  # by the first run only, not again
+
+
+def test_refused_resume_leaves_the_run_status_alone(clean_db: Engine) -> None:
+    done = ingest(clean_db, fakes())
+
+    with pytest.raises(pipeline.ResumeError):
+        pipeline.resume_ingest(clean_db, done.run_id, extractors=fakes(), make_fetcher=no_http)
+
+    with clean_db.connect() as conn:
+        assert conn.execute(text("SELECT status FROM pipeline_runs")).scalar_one() == RunStatus.SUCCEEDED
+
+
 def test_resume_refuses_a_run_that_is_not_the_latest(
     clean_db: Engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -213,7 +249,7 @@ def test_high_reject_rate_fails_and_leaves_postings_untouched(clean_db: Engine) 
 def test_a_second_concurrent_run_is_refused(clean_db: Engine) -> None:
     with clean_db.connect() as other_session:
         other_session.execute(text("SELECT pg_advisory_lock(:key)"), {"key": pipeline.LOCK_ID})
-        with pytest.raises(pipeline.RunLockedError):
+        with pytest.raises(RunLockedError):
             ingest(clean_db, fakes())
         other_session.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": pipeline.LOCK_ID})
 

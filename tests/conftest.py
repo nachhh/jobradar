@@ -1,6 +1,7 @@
 """Shared pytest fixtures. pytest discovers this file automatically and makes its fixtures
 available to every test by parameter name (a test asking for `db_engine` gets the one below)."""
 
+import signal
 from collections.abc import Iterator
 
 import pytest
@@ -9,6 +10,7 @@ from alembic.config import Config
 from sqlalchemy import Connection, Engine, create_engine, text
 
 from jobradar.config import get_settings
+from jobradar.ledger import install_signal_handlers
 
 
 @pytest.fixture(scope="session")
@@ -53,7 +55,7 @@ def db_conn(db_engine: Engine) -> Iterator[Connection]:
 
 @pytest.fixture
 def clean_db(db_engine: Engine) -> Iterator[Engine]:
-    """The test engine with empty ingestion tables, emptied again afterwards.
+    """The test engine with empty tables, emptied again afterwards.
 
     For code that opens and commits its own transactions (the pipeline), which `db_conn`'s
     rollback can't contain. TRUNCATE empties tables at once; CASCADE covers foreign keys.
@@ -63,7 +65,8 @@ def clean_db(db_engine: Engine) -> Iterator[Engine]:
         with db_engine.begin() as conn:
             conn.execute(
                 text(
-                    "TRUNCATE pipeline_runs, pipeline_run_sources, raw_postings, postings, rejected_postings "
+                    "TRUNCATE pipeline_runs, pipeline_run_sources, raw_postings, postings, "
+                    "rejected_postings, posting_enrichments, llm_calls, posting_chunks "
                     "RESTART IDENTITY CASCADE"
                 )
             )
@@ -71,3 +74,14 @@ def clean_db(db_engine: Engine) -> Iterator[Engine]:
     truncate()
     yield db_engine
     truncate()
+
+
+@pytest.fixture
+def signal_handlers() -> Iterator[None]:
+    """The CLI's signal handlers (SIGTERM and SIGHUP raise KeyboardInterrupt) for one test, then
+    the previous handlers back, so a stray signal can't leak into other tests."""
+    saved = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGHUP)}
+    install_signal_handlers()
+    yield
+    for sig, handler in saved.items():
+        signal.signal(sig, handler)

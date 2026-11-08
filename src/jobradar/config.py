@@ -9,6 +9,7 @@ That is why CI can set DATABASE_URL without any `.env` file existing.
 """
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,10 +34,22 @@ class Settings(BaseSettings):
     # Used by the integration tests; a separate database so tests can wipe it freely.
     test_database_url: str = "postgresql+psycopg://jobradar:jobradar@localhost:5434/jobradar_test"
 
-    # LLM provider keys arrive in Phase 2. SecretStr hides the value in logs, reprs and tracebacks:
+    # LLM providers (Phase 2). SecretStr hides the value in logs, reprs and tracebacks:
     # print(settings) shows "**********"; the real value needs .get_secret_value().
+    anthropic_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
+    # Which provider the enrich pipeline calls (decision D1: Claude by default, Gemini as the
+    # alternative). Literal makes pydantic reject any other value at startup, not mid-run.
+    llm_provider: Literal["claude", "gemini"] = "claude"
+    # Enrichment calls in flight at once (threads), and the most calls a single run may make:
+    # a guard against a bug or a prompt change spending more than intended.
+    enrich_concurrency: int = 4
+    enrich_max_calls: int = 3000
+
+    # Where fastembed keeps the downloaded embedding model (~1.2 GB). Inside the project so it's
+    # easy to find and delete; git-ignored.
+    fastembed_cache_path: str = ".cache/fastembed"
 
     # Job sources (Phase 1). Optional: without it, Himalayas requests share a public allowance with
     # every other keyless caller. Free key: https://himalayas.app/api-keys

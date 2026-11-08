@@ -13,13 +13,10 @@ Concepts:
 - **Plain functions.** The CLI calls them; an orchestrator (Dagster, later) can call the same ones.
 """
 
-import hashlib
 import json
 import logging
-import subprocess
 import uuid
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -28,11 +25,21 @@ from sqlalchemy import Connection, Engine, Row, Select, Update, func, select, te
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from jobradar.ingest.http import Fetcher, make_client
-from jobradar.ingest.link import link_duplicates
+from jobradar.ingest.link import relink
 from jobradar.ingest.sources import EXTRACTORS
 from jobradar.ingest.sources.base import Extractor, RawRecord
 from jobradar.ingest.transform import TransformCounts, transform_source
-from jobradar.models import PipelineRun, PipelineRunSource, RunStatus, Source, SourceStatus, Stage, Trigger
+from jobradar.ledger import advisory_lock, finish_run, guard_run, lock_id, run_ledger, sweep_dead_runs
+from jobradar.models import (
+    Pipeline,
+    PipelineRun,
+    PipelineRunSource,
+    RunStatus,
+    Source,
+    SourceStatus,
+    Stage,
+    Trigger,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +52,9 @@ MIN_FETCH_INTERVAL = {
     Source.HIMALAYAS: timedelta(hours=20),  # data refreshes daily; ~230 requests per fetch
     Source.JOBICY: timedelta(hours=1),  # "must not exceed once per hour"
 }
-# The advisory lock's id: Postgres identifies advisory locks by a 64-bit integer, and any fixed
-# value that nothing else in the database uses will do. Deriving it from a readable name documents
-# what it locks (the first 8 bytes of a SHA-256, read as a signed 64-bit integer).
-LOCK_ID = int.from_bytes(hashlib.sha256(b"jobradar.ingest").digest()[:8], "big", signed=True)
-
-
-class RunLockedError(Exception):
-    """Another ingest run holds the lock."""
+LOCK_ID = lock_id("jobradar.ingest")  # the advisory lock held by ingest runs (see ledger.py)
+# The pipelines that hold LOCK_ID: a run of either one sweeps dead runs of both (ledger.py).
+LOCKED_PIPELINES = (Pipeline.INGEST, Pipeline.REBUILD)
 
 
 class NothingToRunError(Exception):
@@ -94,17 +96,17 @@ def run_ingest(
     make_fetcher: Callable[[], Fetcher] = default_fetcher,
 ) -> RunResult:
     """Start a new run over `sources`. `extractors` and `make_fetcher` can be swapped in tests."""
-    with _ingest_lock(engine):
+    with advisory_lock(engine, LOCK_ID, "ingest"):
         to_run, skipped = _apply_fetch_intervals(engine, sources, force=force)
         if not to_run:
             raise NothingToRunError(f"all sources skipped: {', '.join(skipped)}")
         params = {"sources": list(to_run), "skipped": list(skipped), "force": force}
-        run_id = _start_run(engine, "ingest", trigger, params)
-        logger.info("run %s started: %s", run_id, ", ".join(to_run))
-        for source in to_run:
-            _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
-        _link(engine)
-        return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
+        with run_ledger(engine, Pipeline.INGEST, trigger, params, sweep=LOCKED_PIPELINES) as run_id:
+            logger.info("run %s started: %s", run_id, ", ".join(to_run))
+            for source in to_run:
+                _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
+            relink(engine)
+            return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
 
 
 def resume_ingest(
@@ -117,27 +119,32 @@ def resume_ingest(
 ) -> RunResult:
     """Finish `run_id`: skip sources that succeeded, re-transform those that reached `extracted`
     (no API calls), and extract again only those that never got that far."""
-    with _ingest_lock(engine):
+    with advisory_lock(engine, LOCK_ID, "ingest"):
+        # A run killed with -9 is still `running`: the sweep marks it `interrupted`, which is
+        # resumable like `failed` and `partial`.
+        sweep_dead_runs(engine, LOCKED_PIPELINES)
         run = _resumable_run(engine, run_id)
-        states = {
-            row.source: row
-            for row in _query(engine, select(PipelineRunSource).where(PipelineRunSource.run_id == run_id))
-        }
-        pending = [Source(s) for s in run.params["sources"]]
-        needs_fetch = [s for s in pending if s not in states or states[s].stage is None]
-        allowed, skipped = _apply_fetch_intervals(engine, needs_fetch, force=force)
-        for source in pending:
-            state = states.get(source)
-            if state is not None and state.status == SourceStatus.SUCCEEDED:
-                continue  # already done
-            if state is not None and state.stage is not None:
-                logger.info("%s: already extracted; transforming again without fetching", source)
-                _start_source(engine, run_id, source)
-                _transform(engine, run_id, source)
-            elif source in allowed:
-                _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
-        _link(engine)
-        return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
+        # Guarded only from here: a refused resume (ResumeError above) must not touch the run's status.
+        with guard_run(engine, run_id):
+            states = {
+                row.source: row
+                for row in _query(engine, select(PipelineRunSource).where(PipelineRunSource.run_id == run_id))
+            }
+            pending = [Source(s) for s in run.params["sources"]]
+            needs_fetch = [s for s in pending if s not in states or states[s].stage is None]
+            allowed, skipped = _apply_fetch_intervals(engine, needs_fetch, force=force)
+            for source in pending:
+                state = states.get(source)
+                if state is not None and state.status == SourceStatus.SUCCEEDED:
+                    continue  # already done
+                if state is not None and state.stage is not None:
+                    logger.info("%s: already extracted; transforming again without fetching", source)
+                    _start_source(engine, run_id, source)
+                    _transform(engine, run_id, source)
+                elif source in allowed:
+                    _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
+            relink(engine)
+            return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
 
 
 def rebuild(engine: Engine, sources: Sequence[Source] = tuple(Source)) -> RunResult:
@@ -146,18 +153,19 @@ def rebuild(engine: Engine, sources: Sequence[Source] = tuple(Source)) -> RunRes
     Only postings whose parsed content changes are rewritten (the content_hash rule), so after a
     parser fix exactly the affected postings show up as `updated` in the ledger.
     """
-    with _ingest_lock(engine):
-        run_id = _start_run(engine, "rebuild", Trigger.MANUAL, {"sources": list(sources)})
-        for source in sources:
-            _start_source(engine, run_id, source)
-            try:
-                with engine.begin() as conn:
-                    counts = transform_source(conn, run_id, source, rebuild=True)
-                    _record_counts(conn, run_id, source, counts, succeeded=True)
-            except Exception as exc:
-                _fail_source(engine, run_id, source, exc)
-        _link(engine)  # a parser fix can change dedup keys
-        return RunResult(run_id, _finish_run(engine, run_id))
+    with advisory_lock(engine, LOCK_ID, "ingest"):
+        params = {"sources": list(sources)}
+        with run_ledger(engine, Pipeline.REBUILD, Trigger.MANUAL, params, sweep=LOCKED_PIPELINES) as run_id:
+            for source in sources:
+                _start_source(engine, run_id, source)
+                try:
+                    with engine.begin() as conn:
+                        counts = transform_source(conn, run_id, source, rebuild=True)
+                        _record_counts(conn, run_id, source, counts, succeeded=True)
+                except Exception as exc:
+                    _fail_source(engine, run_id, source, exc)
+            relink(engine)  # a parser fix can change dedup keys
+            return RunResult(run_id, _finish_run(engine, run_id))
 
 
 # --- One source -------------------------------------------------------------------------------
@@ -215,26 +223,6 @@ def _transform(engine: Engine, run_id: uuid.UUID, source: Source) -> None:
         )
     except Exception as exc:
         _fail_source(engine, run_id, source, exc)
-
-
-def _link(engine: Engine) -> None:
-    """Stage 3, over all of `postings` (not just this run's), in its own transaction.
-
-    A failure here is logged but doesn't fail the run: the postings are loaded correctly either
-    way, and the next run links again from scratch (link_duplicates is idempotent).
-    """
-    try:
-        with engine.begin() as conn:
-            counts = link_duplicates(conn)
-        logger.info(
-            "linking: %d exact and %d fuzzy pairs, %d groups, %d postings (re)linked",
-            counts.exact_pairs,
-            counts.fuzzy_pairs,
-            counts.groups,
-            counts.changed,
-        )
-    except Exception:
-        logger.exception("linking failed; postings are loaded, links will be retried next run")
 
 
 def load_raw(conn: Connection, run_id: uuid.UUID, source: Source, records: Sequence[RawRecord]) -> int:
@@ -320,38 +308,7 @@ def _apply_fetch_intervals(
 # --- The lock ---------------------------------------------------------------------------------
 
 
-@contextmanager
-def _ingest_lock(engine: Engine) -> Iterator[None]:
-    """Hold a Postgres advisory lock for the whole run, or fail at once if someone else has it.
-
-    An advisory lock is a named mutex inside Postgres with no table attached: the application
-    decides what it means. pg_try_advisory_lock returns false instead of waiting (fail fast). The
-    lock belongs to the *session* (connection), not a transaction: it's released by
-    pg_advisory_unlock, or automatically when the connection closes, so a crash can't leave it stuck.
-    """
-    with engine.connect() as conn:
-        acquired = conn.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": LOCK_ID}).scalar_one()
-        conn.commit()  # ends SQLAlchemy's implicit transaction; the session-level lock stays held
-        if not acquired:
-            raise RunLockedError("another ingest run is in progress")
-        try:
-            yield
-        finally:
-            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": LOCK_ID})
-            conn.commit()
-
-
 # --- Ledger writes ----------------------------------------------------------------------------
-
-
-def _start_run(engine: Engine, pipeline: str, trigger: Trigger, params: dict[str, Any]) -> uuid.UUID:
-    stmt = (
-        pg_insert(PipelineRun)
-        .values(pipeline=pipeline, trigger=trigger, params=params, git_sha=_git_sha())
-        .returning(PipelineRun.run_id)
-    )
-    with engine.begin() as conn:
-        return conn.execute(stmt).scalar_one()
 
 
 def _start_source(engine: Engine, run_id: uuid.UUID, source: Source) -> None:
@@ -416,11 +373,7 @@ def _finish_run(engine: Engine, run_id: uuid.UUID) -> RunStatus:
             status = RunStatus.PARTIAL
         else:
             status = RunStatus.FAILED
-        conn.execute(
-            update(PipelineRun)
-            .where(PipelineRun.run_id == run_id)
-            .values(status=status, finished_at=func.now())
-        )
+    finish_run(engine, run_id, status)
     logger.info("run %s: %s", run_id, status)
     return status
 
@@ -441,14 +394,14 @@ def _resumable_run(engine: Engine, run_id: uuid.UUID) -> Row[Any]:
     if not rows:
         raise ResumeError(f"no run {run_id}")
     run = rows[0]
-    if run.pipeline != "ingest":
+    if run.pipeline != Pipeline.INGEST:
         raise ResumeError(f"run {run_id} is a {run.pipeline} run, not an ingest run")
     if run.status == RunStatus.SUCCEEDED:
         raise ResumeError(f"run {run_id} already succeeded")
     latest = _query(
         engine,
         select(PipelineRun.run_id)
-        .where(PipelineRun.pipeline == "ingest")
+        .where(PipelineRun.pipeline == Pipeline.INGEST)
         .order_by(PipelineRun.started_at.desc())
         .limit(1),
     )[0][0]
@@ -463,19 +416,3 @@ def _query(engine: Engine, stmt: Select[Any]) -> Sequence[Row[Any]]:
     """Run a read-only query on a short-lived connection."""
     with engine.connect() as conn:
         return conn.execute(stmt).all()
-
-
-def _git_sha() -> str | None:
-    """The commit the code runs from, for lineage; None outside a git checkout."""
-    try:
-        # S603/S607: fixed arguments (no user input), and `git` found on PATH on purpose.
-        result = subprocess.run(  # noqa: S603
-            ["git", "rev-parse", "--short=12", "HEAD"],  # noqa: S607
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return result.stdout.strip() or None

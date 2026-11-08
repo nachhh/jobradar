@@ -6,10 +6,15 @@ name = "jobradar"
 version = "0.1.0"
 description = "Job-market intelligence: ingestion, LLM enrichment, RAG and an agent over job postings."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.20.1",
+    "anthropic>=2.5.0",
+    "fastembed>=0.9.1",
+    "google-genai>=2.34.0",
     "httpx>=0.28.1",
+    "onnxruntime<1.24 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "pgvector>=0.5.1",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.14.2",
     "pydantic-settings>=2.16.2",
@@ -42,12 +47,22 @@ select = ["E", "F", "I", "UP", "B", "S"]
 
 [tool.pyright]
 pythonVersion = "3.12"
-include = ["src", "tests", "migrations"]
+# Resolve imports from the project's .venv (created by `uv sync`). Pylance, VS Code's Python
+# language server, reads this section too, so the editor finds installed packages without
+# depending on which interpreter is selected in the UI.
+venvPath = "."
+venv = ".venv"
+include = ["src", "tests", "migrations", "evals"]
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: needs the Postgres test database (make up)"]
+markers = [
+    "integration: needs the Postgres test database (make up)",
+    "model: runs the real embedding model (downloads ~1.2 GB once); run with `uv run pytest -m model`",
+]
+# Skip model tests by default (and in CI); a later -m on the command line overrides this one.
+addopts = "-m 'not model'"
 
 [dependency-groups]
 dev = [
