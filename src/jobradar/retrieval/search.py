@@ -21,7 +21,7 @@ How a query runs (one SQL statement, then optional reranking in Python):
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import Engine, text
 
@@ -46,6 +46,10 @@ STOPWORDS = frozenset(
 )
 
 _WORD = re.compile(r"\w+")
+
+# Which lists feed the fusion. "keyword" and "vector" exist for evaluation: comparing each half alone
+# with their fusion is how the mini-eval (evals/search_eval.py) shows what hybrid search adds.
+Mode = Literal["hybrid", "keyword", "vector"]
 
 
 @dataclass(frozen=True)
@@ -100,7 +104,7 @@ _SEARCH_SQL = text("""
             FROM posting_chunks c
             JOIN eligible e ON e.id = c.posting_id
             CROSS JOIN (SELECT to_tsquery('simple', unaccent(:terms)) AS query) q
-            WHERE CAST(:terms AS text) IS NOT NULL AND c.tsv @@ q.query
+            WHERE :use_keyword AND CAST(:terms AS text) IS NOT NULL AND c.tsv @@ q.query
             GROUP BY c.posting_id
             ORDER BY score DESC, c.posting_id
             LIMIT :depth
@@ -112,6 +116,7 @@ _SEARCH_SQL = text("""
             SELECT c.posting_id, min(c.embedding <=> CAST(:vector AS vector)) AS distance
             FROM posting_chunks c
             JOIN eligible e ON e.id = c.posting_id
+            WHERE :use_vector
             GROUP BY c.posting_id
             ORDER BY distance, c.posting_id
             LIMIT :depth
@@ -161,6 +166,7 @@ def search(
     limit: int = 10,
     reranker: Reranker | None = None,
     candidates: int = LIST_DEPTH,
+    mode: Mode = "hybrid",
 ) -> list[SearchHit]:
     """The best `limit` postings for `query`: hybrid search, RRF, then reranking if a reranker is given.
 
@@ -178,6 +184,8 @@ def search(
         "depth": LIST_DEPTH,
         "rrf_k": RRF_K,
         "candidates": max(candidates, limit),
+        "use_keyword": mode in ("hybrid", "keyword"),
+        "use_vector": mode in ("hybrid", "vector"),
     }
     with engine.connect() as conn:
         rows = conn.execute(_SEARCH_SQL, params).all()

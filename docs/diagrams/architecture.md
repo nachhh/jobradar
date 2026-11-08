@@ -50,10 +50,10 @@ flowchart LR
         INDEXER["indexer.py<br/>stale postings (fingerprint) → chunks + header"]
         EMB["embeddinggemma-300m<br/>fastembed / ONNX Runtime, CPU"]
         SEARCH["search.py<br/>keyword + vector, filters, RRF"]
-        RERANK["bge-reranker-v2-m3 (int8)<br/>cross-encoder, top 20"]
+        RERANK["bge-reranker-v2-m3 (int8)<br/>cross-encoder, top 20, opt-in"]
         INDEXER --> EMB
         SEARCH -- "embed the query" --> EMB
-        SEARCH --> RERANK
+        SEARCH -. "opt-in" .-> RERANK
     end
 
     subgraph pg["Postgres 17 + pgvector + pg_trgm (Docker)"]

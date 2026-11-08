@@ -8,7 +8,9 @@ Concepts:
   separately made vectors blur. Nothing can be precomputed, so it only scores the top ~20.
 
 Decision D3: BAAI/bge-reranker-v2-m3 (int8 ONNX), the multilingual cross-encoder fastembed offers
-with a permissive license. It is kept only if the mini-eval (step s7) shows it helps.
+with a permissive license. The mini-eval (step s7) showed no gain: every variant scored
+precision@5 = 1.00 on realistic queries. So it stays available but off by default (`--rerank`), until
+Phase 4's harder golden set can tell whether it earns its ~6 s.
 """
 
 from collections.abc import Sequence

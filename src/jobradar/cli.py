@@ -201,12 +201,16 @@ def search(
     ] = None,
     latam: Annotated[bool, typer.Option("--latam", help="Only jobs that hire from Latin America.")] = False,
     limit: Annotated[int, typer.Option(help="How many results.")] = 10,
-    rerank: Annotated[bool, typer.Option(help="Re-order with the cross-encoder (slower, ~10 s).")] = True,
+    # Off by default: the mini-eval (evals/search_eval.py) found no gain from reranking on realistic
+    # queries, and it adds ~6 s per search (spec decision D3, 2026-11-07).
+    rerank: Annotated[
+        bool, typer.Option(help="Re-order with the cross-encoder (adds ~6 s; unproven, see D3).")
+    ] = False,
     explain: Annotated[
         bool, typer.Option("--explain", help="Show each result's keyword and vector ranks.")
     ] = False,
 ) -> None:
-    """Search the postings: keyword + vector search, fused with RRF, then reranked."""
+    """Search the postings: keyword + vector search, fused with RRF; --rerank re-orders the results."""
     settings = get_settings()
     filters = SearchFilters(
         remote=remote.value if remote else None,

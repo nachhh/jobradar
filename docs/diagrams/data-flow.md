@@ -125,7 +125,7 @@ flowchart TB
     KW["keyword top 20<br/>tsv @@ terms, ts_rank, best chunk per posting"]
     VS["vector top 20<br/>cosine distance, best chunk per posting"]
     RRF["RRF: 1/(60 + rank) summed over both lists<br/>top 20 postings"]
-    RR["rerank: cross-encoder reads<br/>(query, first 600 chars of the best chunk)"]
+    RR["optional rerank: cross-encoder reads<br/>(query, first 600 chars of the best chunk)"]
     OUT[/"results: title, company, LATAM, remote, salary, summary, url"/]
 
     Q --> TERMS
@@ -136,8 +136,11 @@ flowchart TB
     ELIG --> VS
     KW --> RRF
     VS --> RRF
-    RRF --> RR
-    RR --> OUT
+    RRF --> OUT
+    RRF -. "opt-in" .-> RR
+    RR -.-> OUT
 ```
+
+Reranking is off by default: the mini-eval found no gain on realistic queries, and it adds ~6 s (spec decision D3).
 
 Code: [retrieval/search.py](../../src/jobradar/retrieval/search.py), [retrieval/rerank.py](../../src/jobradar/retrieval/rerank.py).

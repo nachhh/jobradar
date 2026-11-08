@@ -2,7 +2,7 @@
 # `make <target>`; `make help` lists them. Each recipe line runs in its own shell.
 
 # Targets that are commands, not files: Make shouldn't look for files with these names.
-.PHONY: help install up down reset-db migrate health ingest runs lint fmt typecheck test check
+.PHONY: help install up down reset-db migrate health ingest runs enrich index lint fmt typecheck test test-model check
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-10s %s\n", $$1, $$2}'
@@ -33,6 +33,12 @@ ingest: ## Fetch postings from every source and load them (rate-limited sources 
 runs: ## Show the most recent pipeline runs and their counts
 	uv run jobradar runs
 
+enrich: ## Extract LLM fields for new or changed postings (costs a few cents; see --dry-run)
+	uv run jobradar enrich
+
+index: ## Chunk and embed new or changed postings (local model, free)
+	uv run jobradar index
+
 lint: ## Lint and check formatting
 	uv run ruff check .
 	uv run ruff format --check .
@@ -46,5 +52,8 @@ typecheck: ## Type-check with pyright
 
 test: ## Run all tests (integration tests need `make up`)
 	uv run pytest
+
+test-model: ## Run the tests that use the real embedding model (downloads ~1.2 GB once)
+	uv run pytest -m model
 
 check: lint typecheck test ## Everything CI runs

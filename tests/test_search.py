@@ -125,6 +125,18 @@ def test_one_result_per_posting_and_per_job_group(clean_db: Engine) -> None:
     assert canonical in found and copy not in found  # the group's representative only
 
 
+def test_modes_use_one_list_or_both(clean_db: Engine) -> None:
+    add(clean_db, "Data Engineer", "Spark pipelines.")
+    add(clean_db, "Backend Developer", "Django APIs.")
+    run_index(clean_db, EMBEDDER)
+
+    keyword = search(clean_db, "spark", EMBEDDER, mode="keyword")
+    vector = search(clean_db, "spark", EMBEDDER, mode="vector")
+
+    assert len(keyword) == 1 and keyword[0].vector_rank is None  # only the keyword match
+    assert len(vector) == 2 and all(h.keyword_rank is None for h in vector)  # every posting has a distance
+
+
 def test_inactive_postings_are_not_returned(clean_db: Engine) -> None:
     closed = add(clean_db, "Data Engineer", "Spark pipelines.")
     run_index(clean_db, EMBEDDER)
