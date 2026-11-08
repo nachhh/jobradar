@@ -153,7 +153,7 @@ Each chunk row stores an `index_fingerprint`: a hash of the posting's `content_h
 
 ## Part C: search
 
-`jobradar search "<query>" [--remote …] [--seniority …] [--role …] [--latam] [--limit 10] [--no-rerank] [--explain]`
+`jobradar search "<query>" [--remote …] [--seniority …] [--role …] [--latam] [--limit 10] [--rerank] [--explain]`
 
 1. **Embed the query** with the same model (and the query prefix).
 2. **One SQL query** with two CTEs, each returning the top 20 **chunks**:
@@ -161,7 +161,7 @@ Each chunk row stores an `index_fingerprint`: a hash of the posting's `content_h
    - vector: ordered by `embedding <=> query_vector` (cosine distance);
    - **filters inside both CTEs**: active postings, group representatives only (joined to `current_postings`), plus the CLI filters. Filtering after the merge could leave almost nothing.
 3. **Collapse chunks to postings** (best rank per posting), then **RRF**: score = Σ 1 / (60 + rank) over the two lists, with the CTEs combined through a `FULL OUTER JOIN` rather than a scan of the chunks table.
-4. **Rerank** (D3): the top 20 postings, each as (query, the first 600 characters of its best-matching chunk), scored by the cross-encoder and re-sorted. The cross-encoder's cost grows with input length: full chunks took ~18 s for 20, the first 600 characters (header plus the start of the chunk) ~6 s.
+4. **Rerank** (D3, opt-in with `--rerank` since the mini-eval): the top 20 postings, each as (query, the first 600 characters of its best-matching chunk), scored by the cross-encoder and re-sorted. The cross-encoder's cost grows with input length: full chunks took ~18 s for 20, the first 600 characters (header plus the start of the chunk) ~6 s.
 5. **Output:** rank, title, company, source, LATAM, remote, salary if any, the RRF and rerank scores, and the URL. `--explain` adds each posting's keyword and vector ranks.
 
 Search is a plain function (`search(conn, query, filters, …) → list[SearchHit]`), which Phase 3's agent will call as a tool.
@@ -187,7 +187,8 @@ The vector dimension (768) is fixed by the model, so changing the model means a 
 
 - `jobradar enrich` and `jobradar index` each create a `pipeline_runs` row (`enrich`, `index`) and take their **own** advisory lock: two enrich runs can't overlap, but an ingest can run alongside, since staleness reconciles on the next run.
 - After `enrich`, linking runs again so that newly enriched HN postings can link.
-- Scheduling: the README's crontab line becomes `ingest`, then `enrich`, then `index`, each only if the previous one exited 0.
+- Scheduling: the README's crontab line runs `ingest`, then `enrich`, then `index`, each whatever the previous one's exit code: `ingest` exits non-zero when any source fails or all are skipped, while `enrich` and `index` only process what is stale, so they are always safe to run (changed from "only if the previous one exited 0" on 2026-11-07).
+- **Every run ends with a final status** (added in s7): a run stopped by Ctrl-C, SIGTERM or SIGHUP records `interrupted` (migration `0008`), an unexpected error records `failed`, and a run killed too hard to record anything (`kill -9`) is marked `interrupted` by the next run of a pipeline under the same lock. In enrich, an interruption stops the queued postings at once, and the calls in flight finish and are stored.
 - `jobradar runs` shows enrich and index runs with their counts (derived as above), and calls, tokens and cost for enrich runs.
 
 ## Configuration
@@ -233,11 +234,48 @@ Commits name their step: `[jobradar][p2][s<N>] <description>`. Diagrams and ADRs
 | s4 | HN linking through the enrichment's `dedup_key`; re-link after enrich (shared `relink()`, serialized by a transaction-level advisory lock); `jobradar link` | Done. On real data: 0 HN links. Only 2 of ~420 HN companies appear on another board; the one plausible duplicate (Perry Street Software, "Senior Mobile Developer (iOS)" vs "… (iOS/Android) - LATAM") scores 0.62 on title similarity, below 0.8 |
 | s5 | Chunking, embeddings and the index pipeline (`index`), `onnxruntime` pin; ADR-0004 (local embeddings) | Built. Full index (run `b6807934`): 2,709 postings, 7,478 chunks (2.8 per posting, at most 9), 53 min on CPU; re-run: nothing to index. Done |
 | s6 | Hybrid search with RRF, filters and reranking; `search` CLI | Done. Search SQL ~0.5 s; reranking 20 results ~6 s (input cut to 600 characters, from ~18 s); a cold CLI run adds ~7 s of model loading |
-| s7 | Mini retrieval eval, acceptance run on real data, crontab line, README, diagrams | Not started |
+| s7 | Mini retrieval eval, acceptance run on real data, crontab line, README, diagrams | Done. `search()` modes (hybrid, keyword, vector) for the eval; mini-eval: every variant at precision@5 = 1.00, so reranking is opt-in; cron line runs every step whatever the exit codes; interrupted runs are recorded (`interrupted`, migration `0008`); see [Acceptance report](#acceptance-report) |
+
+## Acceptance report
+
+Run on real data on 2026-11-07.
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Enrich every active posting, < 2% failed, backfill < $3 | **Met.** Backfill run `6e0ecf06`: 2,659 of 2,659 ok, 0 failed (13 of them ungrounded: the LATAM quote wasn't in the posting, so `latam_hiring` was downgraded to unknown), $1.19 in 54 min; $1.25 for all enrichment including trials. |
+| 2 | Re-run makes 0 LLM calls | **Met.** |
+| 3 | Owner review: ≥ 90% of fields correct, LATAM ≥ 18/20 | **Met.** 97.0% of fields, LATAM 20/20 (prompt v1); the owner's re-check of the fields v3 changed held. A code eval against the boards' own fields agrees on remote 98.7% of the time. |
+| 4 | HN company and title through `enriched_postings`; ≥ 1 HN link or an explanation | **Explained.** HN titles and companies come from the enrichment. 0 HN links: only 2 of ~420 HN companies appear on another board, and the one plausible pair (Perry Street Software) is a US-only HN post vs a LATAM listing, scoring 0.62 on title similarity, below 0.8. |
+| 5 | Index every active posting; re-run embeds nothing | **Met.** Run `b6807934`: 2,709 postings, 7,478 chunks, 53 min; re-run: nothing to index. |
+| 6 | Relevant results with scores; warm `search()` < 10 s with rerank, < 3 s without; cold CLI reported; mini-eval table | **Met.** Warm: 0.14–0.30 s without rerank, ~6.5 s with it. Cold CLI without rerank (now the default): 5.5 s, almost all model loading. Mini-eval below. |
+| 7 | `make check` passes locally and in CI | **Met** for s0–s6 ([CI run 42344144815](https://github.com/nachhh/jobradar/actions/runs/42344144815), commit `336853f`); s7 is checked again when pushed. |
+
+**Mini retrieval eval (D6).** 8 queries the owner would really type (all with `--latam`), 95 pooled postings judged by the owner, blind to which variant returned them ([evals/search_eval.py](../evals/search_eval.py), judgments in [evals/search_judgments.json](../evals/search_judgments.json)):
+
+| Variant | Mean precision@5 |
+|---|---|
+| keyword | 1.00 |
+| vector | 1.00 |
+| hybrid (RRF) | 1.00 |
+| hybrid + rerank | 1.00 |
+
+Every posting in every top 5 was relevant: the eval is **saturated** (a ceiling effect). For queries like these, a LATAM tech corpus has dozens of good matches, and any of the four variants finds five. It shows that search works for the owner's real queries, but it can't show whether RRF or the reranker improve on keyword search alone. Hybrid search stays the default (it costs ~0.1 s over keyword search and covers what keywords miss: synonyms, other languages, word forms); the reranker becomes opt-in (below).
+
+**Cron sequence (`ingest`, `enrich`, `index`)**, run once by hand with the crontab line's loop; all three exited 0:
+
+- `ingest` (run `c10018c5`, 24 s): Himalayas skipped by its 20 h interval; GetOnBoard 583 of 583 and HN 460 of 461 unchanged, confirming that the previous run's mass rewrite was a one-time catch-up (see Decisions).
+- `enrich` (run `66d00b5b`, 22 min): first swept the stopped run `c645b297` to `interrupted`, then 1,036 postings, 0 failed, $0.45. The catch-up cost $0.58 in all; enrichment so far totals $1.83.
+- `index` (run `ea25ea99`, 21 min): 1,223 postings, 2,911 chunks.
 
 ## Decisions
 
 - D1–D6 as in [Key choices](#key-choices) (2026-11-05).
+- **D3 outcome: the reranker is opt-in** (`--rerank`; it was on by default). The mini-eval showed no gain on realistic queries and it adds ~6 s per search. The code stays, so Phase 4 can measure it again (2026-11-07).
+- **Phase 4's golden set needs harder queries and an order-aware metric.** The owner's real queries are simple and saturate precision@5, so measuring RRF and reranking needs specific or ambiguous queries (several requirements at once, exclusions, location and salary constraints) and a metric that rewards order, such as nDCG. The 95 judgments here are its seed (2026-11-07).
+- **Run status `interrupted`** (owner's request, after a stopped test run stayed `running`): set by the run itself on Ctrl-C, SIGTERM or SIGHUP (the CLI turns the last two into `KeyboardInterrupt`), or by the next run's sweep after a `kill -9`. Not `partial`, which already means "some sources failed", so the ledger tells a broken source from a stopped run. Not `atexit`: it doesn't run on SIGTERM and doesn't know the run (2026-11-07).
+- **The first ingest after Phase 1 rewrote most postings** (GetOnBoard 549 of 583, HN 430 of 460), and enrich then found 1,243 stale. Not recurring: `content_hash` covers every `PostingIn` field, and the salary-unit fields added after the last Phase 1 ingest (`abf545d`) changed the hash of every older posting (only 42 GetOnBoard and 1 HN posting had new raw data). A one-time catch-up, ~$0.50 of re-enrichment. **Rule:** after changing `PostingIn` or a parser, run `jobradar transform --rebuild` right away, so the catch-up happens on purpose (2026-11-07).
+- **Tech debt:** GetOnBoard returns a posting's tags in varying order, and the order is part of `content_hash`: ~7 needless re-enrichments a day (~$0.003). Sorting tags would change the hash of every GetOnBoard posting once (~$0.25 and 25 min of indexing), so it waits for the next change that rehashes anyway (2026-11-07).
+- `search()` takes a `mode` (hybrid, keyword, vector): one SQL statement with either list switched off, so the eval compares the halves with their fusion (2026-11-07).
 - Use `fastembed` (ONNX) for local models, with `onnxruntime` pinned below 1.24 for Intel macOS (2026-11-04). The pin is scoped to Intel Macs with an environment marker, and `requires-python` is now `>=3.12,<3.13` (as ADR-0001 already decided), so uv can resolve one lockfile for every platform (2026-11-07).
 - embeddinggemma's query and document prefixes are added by our code: fastembed documents them but doesn't apply them (2026-11-07).
 - Broad corpus; narrowing by filters at search time, not at ingestion (2026-11-05).
