@@ -4,6 +4,9 @@ They use `clean_db` rather than `db_conn`: the pipeline opens and commits its ow
 (one per posting), which a rolled-back test connection couldn't contain.
 """
 
+import os
+import signal
+import time
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -170,6 +173,31 @@ def test_fatal_error_stops_the_run(clean_db: Engine) -> None:
 
     assert result.status == RunStatus.FAILED
     assert result.counts.calls == 1  # stopped at the first one instead of failing all 20
+
+
+@pytest.mark.usefixtures("signal_handlers")
+def test_kill_mid_run_keeps_the_answer_in_flight_and_skips_the_queue(clean_db: Engine) -> None:
+    """A SIGTERM lands in the main thread while a worker waits on the LLM: that answer is still
+    stored (it was paid for), the queued postings are never sent, and the run says `interrupted`."""
+    ids = add_postings(clean_db, 6)
+
+    def respond(text: str) -> dict[str, Any]:
+        if "Posting 1." in text:
+            os.kill(os.getpid(), signal.SIGTERM)  # "kill <pid>" while this call is in flight
+            time.sleep(0.5)  # the main thread handles the signal meanwhile
+        return answer()
+
+    provider = FakeProvider(respond)
+    with pytest.raises(KeyboardInterrupt):
+        run_enrich(clean_db, provider, concurrency=1)
+
+    assert set(enrichments(clean_db)) == set(ids[:2])  # posting 0, and posting 1 (in flight)
+    assert len(provider.calls) == 2  # postings 2-5 were cancelled, not sent
+    with clean_db.connect() as conn:
+        runs = (
+            conn.execute(select(PipelineRun.status).where(PipelineRun.pipeline == "enrich")).scalars().all()
+        )
+    assert runs == [RunStatus.INTERRUPTED]
 
 
 def test_ungrounded_answer_keeps_fields_but_not_the_latam_claim(clean_db: Engine) -> None:

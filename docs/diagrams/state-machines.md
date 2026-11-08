@@ -31,21 +31,26 @@ Not drawn: a source **inside its minimum fetch interval** (Remotive 6 h, Himalay
 
 ## A run
 
-`pipeline_runs.status`, computed from its sources when the run ends.
+`pipeline_runs.status`. For ingest it's computed from the sources when the run ends (enrich and index use their own counts). The ledger ([ledger.py](../../src/jobradar/ledger.py)) makes sure no run stays `running` once its process is gone.
 
 ```mermaid
 stateDiagram-v2
     direction LR
-    [*] --> running : lock acquired, run row created
+    [*] --> running : lock acquired, dead runs swept, run row created
     running --> succeeded : every source succeeded
     running --> partial : some sources succeeded
-    running --> failed : no source succeeded
+    running --> failed : no source succeeded, or an error
+    running --> interrupted : Ctrl-C, SIGTERM or SIGHUP
+    running --> interrupted : kill -9, found by the next run
     partial --> succeeded : --resume finishes the rest
     failed --> succeeded : --resume
     failed --> partial : --resume, some still fail
-    running --> succeeded : crash, then --resume
+    interrupted --> succeeded : --resume
     succeeded --> [*]
 ```
+
+- **Interrupted by a signal:** the run records `interrupted` itself. Ctrl-C raises `KeyboardInterrupt`, and the CLI makes SIGTERM and SIGHUP raise it too. The transaction in progress rolls back, and an ingest source still running becomes `failed` with `error_type` "Interrupted".
+- **Killed with -9** (or power loss): nothing can run, so the row stays `running` until the next run of a pipeline under the same lock marks it `interrupted`, with `finished_at` left empty.
 
 Only the **latest** ingest run can be resumed: a newer run has re-stamped the raw rows, so an older one would see an incomplete batch.
 

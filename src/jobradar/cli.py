@@ -17,7 +17,7 @@ from jobradar.db import check_database, get_engine
 from jobradar.enrich import pipeline as enrich_pipeline
 from jobradar.ingest import pipeline
 from jobradar.ingest.link import link_duplicates
-from jobradar.ledger import RunLockedError
+from jobradar.ledger import RunLockedError, install_signal_handlers
 from jobradar.llm import MissingApiKeyError, make_provider
 from jobradar.models import (
     LlmCall,
@@ -54,6 +54,9 @@ def main() -> None:
     # for debugging only.
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpx2").setLevel(logging.WARNING)
+    # A `kill` (SIGTERM) or a closed terminal (SIGHUP) then stops a run like Ctrl-C does, and the
+    # run records `interrupted` instead of staying `running` (ledger.py).
+    install_signal_handlers()
 
 
 @app.command()

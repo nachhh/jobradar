@@ -1,6 +1,7 @@
 """Shared pytest fixtures. pytest discovers this file automatically and makes its fixtures
 available to every test by parameter name (a test asking for `db_engine` gets the one below)."""
 
+import signal
 from collections.abc import Iterator
 
 import pytest
@@ -9,6 +10,7 @@ from alembic.config import Config
 from sqlalchemy import Connection, Engine, create_engine, text
 
 from jobradar.config import get_settings
+from jobradar.ledger import install_signal_handlers
 
 
 @pytest.fixture(scope="session")
@@ -72,3 +74,14 @@ def clean_db(db_engine: Engine) -> Iterator[Engine]:
     truncate()
     yield db_engine
     truncate()
+
+
+@pytest.fixture
+def signal_handlers() -> Iterator[None]:
+    """The CLI's signal handlers (SIGTERM and SIGHUP raise KeyboardInterrupt) for one test, then
+    the previous handlers back, so a stray signal can't leak into other tests."""
+    saved = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGHUP)}
+    install_signal_handlers()
+    yield
+    for sig, handler in saved.items():
+        signal.signal(sig, handler)

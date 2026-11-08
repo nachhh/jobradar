@@ -1,6 +1,7 @@
 """Integration tests for the index pipeline, with FakeEmbedder (no model download)."""
 
 import uuid
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
@@ -159,3 +160,33 @@ def test_real_model_ranks_by_meaning() -> None:
     assert len(data) == EMBEDDING_DIM
     assert cosine(query, data) > cosine(query, chef)
     assert embedder.count_tokens("Build batch pipelines") > 0
+
+
+class StoppedEmbedder(FakeEmbedder):
+    """Ctrl-C (or a kill) arriving during the second batch's embeddings."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.batches = 0
+
+    def embed_documents(self, documents: Sequence[tuple[str | None, str]]) -> list[list[float]]:
+        self.batches += 1
+        if self.batches == 2:
+            raise KeyboardInterrupt
+        return super().embed_documents(documents)
+
+
+def test_interrupted_run_keeps_finished_batches_and_records_interrupted(
+    clean_db: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(indexer, "BATCH_SIZE", 1)  # one posting per batch
+    first, second, third = (add_posting(clean_db, f"Job {i}.") for i in range(3))
+
+    with pytest.raises(KeyboardInterrupt):
+        run_index(clean_db, StoppedEmbedder())
+
+    assert chunks_of(clean_db, first) and not chunks_of(clean_db, second) and not chunks_of(clean_db, third)
+    with clean_db.connect() as conn:
+        status = conn.execute(select(PipelineRun.status).where(PipelineRun.pipeline == "index")).scalar_one()
+    assert status == "interrupted"
+    assert run_index(clean_db, FakeEmbedder()).postings == 2  # the next run picks up the rest

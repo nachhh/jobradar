@@ -23,7 +23,7 @@ erDiagram
         text trigger "manual or scheduled"
         jsonb params "sources, skipped, force"
         text git_sha "code that ran"
-        text status "running, succeeded, partial, failed"
+        text status "running, succeeded, partial, failed, interrupted"
         timestamptz started_at
         timestamptz finished_at
     }

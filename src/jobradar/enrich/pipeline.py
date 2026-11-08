@@ -35,7 +35,7 @@ from jobradar.enrich.prompt import INSTRUCTIONS, PROMPT_VERSION, build_posting_t
 from jobradar.enrich.schema import EnrichmentOut
 from jobradar.ingest.link import relink
 from jobradar.ingest.text import dedup_key
-from jobradar.ledger import advisory_lock, finish_run, lock_id, start_run
+from jobradar.ledger import advisory_lock, finish_run, lock_id, run_ledger
 from jobradar.llm.base import (
     FatalProviderError,
     InvalidOutputError,
@@ -198,40 +198,59 @@ def run_enrich(
             "max_calls": max_calls,
             "model": provider.model,
         }
-        run_id = start_run(engine, Pipeline.ENRICH, trigger, params)
-        logger.info("enrich run %s: %d postings, %s", run_id, len(postings), provider.model)
+        with run_ledger(engine, Pipeline.ENRICH, trigger, params) as run_id:
+            logger.info("enrich run %s: %d postings, %s", run_id, len(postings), provider.model)
+            worker = _Worker(engine, provider, run_id, max_calls)
+            worker.counts.stale = len(postings)
+            _run_workers(worker, postings, concurrency)
+            return _finish(engine, run_id, worker, len(postings))
 
-        worker = _Worker(engine, provider, run_id, max_calls)
-        worker.counts.stale = len(postings)
-        # The executor runs worker.enrich over the postings on `concurrency` threads; leaving the
-        # `with` block waits for all of them. list() consumes the results so exceptions surface.
-        with ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="enrich") as pool:
-            list(pool.map(worker.enrich, postings))
 
-        counts = worker.counts
-        if worker.abort_reason:
-            status = RunStatus.FAILED
-            logger.error("enrich run %s stopped: %s", run_id, worker.abort_reason)
-        elif counts.failed or counts.errors or counts.ok < len(postings):
-            status = RunStatus.PARTIAL if counts.ok else RunStatus.FAILED
-        else:
-            status = RunStatus.SUCCEEDED
-        finish_run(engine, run_id, status)
-        if counts.ok:
-            # New enrichments can carry dedup keys (HN company and title): link them across boards.
-            relink(engine)
-        logger.info(
-            "enrich run %s: %s (ok %d, ungrounded %d, failed %d, errors %d, %d calls, $%s)",
-            run_id,
-            status,
-            counts.ok,
-            counts.ungrounded,
-            counts.failed,
-            counts.errors,
-            counts.calls,
-            round(counts.cost_usd, 4),
-        )
-        return EnrichResult(run_id, status, counts)
+def _run_workers(worker: "_Worker", postings: Sequence[RowMapping], concurrency: int) -> None:
+    """Run worker.enrich over the postings on `concurrency` threads; stop early if interrupted."""
+    pool = ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="enrich")
+    try:
+        # list() consumes the results, so an exception in any worker surfaces here.
+        list(pool.map(worker.enrich, postings))
+    except BaseException:
+        # Ctrl-C or a kill lands in this (main) thread; signals never reach worker threads. Without
+        # this, shutting the pool down would wait for every queued posting, i.e. the whole run.
+        # With the abort flag set, queued postings return at once; calls already in flight finish
+        # and commit, so no answer that was paid for is lost.
+        with worker.counts.lock:
+            worker.abort_reason = worker.abort_reason or "interrupted"
+        raise
+    finally:
+        # cancel_futures drops postings no thread has started; wait=True lets in-flight ones finish.
+        pool.shutdown(wait=True, cancel_futures=True)
+
+
+def _finish(engine: Engine, run_id: uuid.UUID, worker: "_Worker", stale: int) -> EnrichResult:
+    """The run's final status from its counts, then re-link and log."""
+    counts = worker.counts
+    if worker.abort_reason:
+        status = RunStatus.FAILED
+        logger.error("enrich run %s stopped: %s", run_id, worker.abort_reason)
+    elif counts.failed or counts.errors or counts.ok < stale:
+        status = RunStatus.PARTIAL if counts.ok else RunStatus.FAILED
+    else:
+        status = RunStatus.SUCCEEDED
+    finish_run(engine, run_id, status)
+    if counts.ok:
+        # New enrichments can carry dedup keys (HN company and title): link them across boards.
+        relink(engine)
+    logger.info(
+        "enrich run %s: %s (ok %d, ungrounded %d, failed %d, errors %d, %d calls, $%s)",
+        run_id,
+        status,
+        counts.ok,
+        counts.ungrounded,
+        counts.failed,
+        counts.errors,
+        counts.calls,
+        round(counts.cost_usd, 4),
+    )
+    return EnrichResult(run_id, status, counts)
 
 
 class _Worker:

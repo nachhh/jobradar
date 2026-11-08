@@ -40,6 +40,9 @@ class RunStatus(StrEnum):
     SUCCEEDED = "succeeded"
     PARTIAL = "partial"  # some sources succeeded, some failed
     FAILED = "failed"
+    # Stopped from outside: Ctrl-C or a kill signal (recorded by the run itself), or killed so hard
+    # it couldn't record anything (kill -9, power loss), found by the next run of its pipeline.
+    INTERRUPTED = "interrupted"
 
 
 class SourceStatus(StrEnum):

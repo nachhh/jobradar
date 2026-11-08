@@ -29,7 +29,7 @@ from jobradar.ingest.link import relink
 from jobradar.ingest.sources import EXTRACTORS
 from jobradar.ingest.sources.base import Extractor, RawRecord
 from jobradar.ingest.transform import TransformCounts, transform_source
-from jobradar.ledger import advisory_lock, finish_run, lock_id, start_run
+from jobradar.ledger import advisory_lock, finish_run, guard_run, lock_id, run_ledger, sweep_dead_runs
 from jobradar.models import (
     Pipeline,
     PipelineRun,
@@ -53,6 +53,8 @@ MIN_FETCH_INTERVAL = {
     Source.JOBICY: timedelta(hours=1),  # "must not exceed once per hour"
 }
 LOCK_ID = lock_id("jobradar.ingest")  # the advisory lock held by ingest runs (see ledger.py)
+# The pipelines that hold LOCK_ID: a run of either one sweeps dead runs of both (ledger.py).
+LOCKED_PIPELINES = (Pipeline.INGEST, Pipeline.REBUILD)
 
 
 class NothingToRunError(Exception):
@@ -99,12 +101,12 @@ def run_ingest(
         if not to_run:
             raise NothingToRunError(f"all sources skipped: {', '.join(skipped)}")
         params = {"sources": list(to_run), "skipped": list(skipped), "force": force}
-        run_id = start_run(engine, Pipeline.INGEST, trigger, params)
-        logger.info("run %s started: %s", run_id, ", ".join(to_run))
-        for source in to_run:
-            _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
-        relink(engine)
-        return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
+        with run_ledger(engine, Pipeline.INGEST, trigger, params, sweep=LOCKED_PIPELINES) as run_id:
+            logger.info("run %s started: %s", run_id, ", ".join(to_run))
+            for source in to_run:
+                _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
+            relink(engine)
+            return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
 
 
 def resume_ingest(
@@ -118,26 +120,31 @@ def resume_ingest(
     """Finish `run_id`: skip sources that succeeded, re-transform those that reached `extracted`
     (no API calls), and extract again only those that never got that far."""
     with advisory_lock(engine, LOCK_ID, "ingest"):
+        # A run killed with -9 is still `running`: the sweep marks it `interrupted`, which is
+        # resumable like `failed` and `partial`.
+        sweep_dead_runs(engine, LOCKED_PIPELINES)
         run = _resumable_run(engine, run_id)
-        states = {
-            row.source: row
-            for row in _query(engine, select(PipelineRunSource).where(PipelineRunSource.run_id == run_id))
-        }
-        pending = [Source(s) for s in run.params["sources"]]
-        needs_fetch = [s for s in pending if s not in states or states[s].stage is None]
-        allowed, skipped = _apply_fetch_intervals(engine, needs_fetch, force=force)
-        for source in pending:
-            state = states.get(source)
-            if state is not None and state.status == SourceStatus.SUCCEEDED:
-                continue  # already done
-            if state is not None and state.stage is not None:
-                logger.info("%s: already extracted; transforming again without fetching", source)
-                _start_source(engine, run_id, source)
-                _transform(engine, run_id, source)
-            elif source in allowed:
-                _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
-        relink(engine)
-        return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
+        # Guarded only from here: a refused resume (ResumeError above) must not touch the run's status.
+        with guard_run(engine, run_id):
+            states = {
+                row.source: row
+                for row in _query(engine, select(PipelineRunSource).where(PipelineRunSource.run_id == run_id))
+            }
+            pending = [Source(s) for s in run.params["sources"]]
+            needs_fetch = [s for s in pending if s not in states or states[s].stage is None]
+            allowed, skipped = _apply_fetch_intervals(engine, needs_fetch, force=force)
+            for source in pending:
+                state = states.get(source)
+                if state is not None and state.status == SourceStatus.SUCCEEDED:
+                    continue  # already done
+                if state is not None and state.stage is not None:
+                    logger.info("%s: already extracted; transforming again without fetching", source)
+                    _start_source(engine, run_id, source)
+                    _transform(engine, run_id, source)
+                elif source in allowed:
+                    _extract_and_transform(engine, run_id, source, extractors[source], make_fetcher)
+            relink(engine)
+            return RunResult(run_id, _finish_run(engine, run_id), tuple(skipped))
 
 
 def rebuild(engine: Engine, sources: Sequence[Source] = tuple(Source)) -> RunResult:
@@ -147,17 +154,18 @@ def rebuild(engine: Engine, sources: Sequence[Source] = tuple(Source)) -> RunRes
     parser fix exactly the affected postings show up as `updated` in the ledger.
     """
     with advisory_lock(engine, LOCK_ID, "ingest"):
-        run_id = start_run(engine, Pipeline.REBUILD, Trigger.MANUAL, {"sources": list(sources)})
-        for source in sources:
-            _start_source(engine, run_id, source)
-            try:
-                with engine.begin() as conn:
-                    counts = transform_source(conn, run_id, source, rebuild=True)
-                    _record_counts(conn, run_id, source, counts, succeeded=True)
-            except Exception as exc:
-                _fail_source(engine, run_id, source, exc)
-        relink(engine)  # a parser fix can change dedup keys
-        return RunResult(run_id, _finish_run(engine, run_id))
+        params = {"sources": list(sources)}
+        with run_ledger(engine, Pipeline.REBUILD, Trigger.MANUAL, params, sweep=LOCKED_PIPELINES) as run_id:
+            for source in sources:
+                _start_source(engine, run_id, source)
+                try:
+                    with engine.begin() as conn:
+                        counts = transform_source(conn, run_id, source, rebuild=True)
+                        _record_counts(conn, run_id, source, counts, succeeded=True)
+                except Exception as exc:
+                    _fail_source(engine, run_id, source, exc)
+            relink(engine)  # a parser fix can change dedup keys
+            return RunResult(run_id, _finish_run(engine, run_id))
 
 
 # --- One source -------------------------------------------------------------------------------

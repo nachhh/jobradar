@@ -25,7 +25,7 @@ from typing import Any
 
 from sqlalchemy import Engine, delete, func, insert, text
 
-from jobradar.ledger import advisory_lock, finish_run, lock_id, start_run
+from jobradar.ledger import advisory_lock, finish_run, lock_id, run_ledger
 from jobradar.models import Pipeline, PostingChunk, RunStatus, Trigger
 from jobradar.retrieval.chunk import CHUNKER_VERSION, build_header, split_chunks
 from jobradar.retrieval.embed import Embedder
@@ -110,19 +110,17 @@ def run_index(
         stale = find_stale(engine, embedder.model, limit)
         if not stale:
             raise NothingToIndexError("every active posting is indexed and up to date")
-        run_id = start_run(engine, Pipeline.INDEX, trigger, {"stale": len(stale), "model": embedder.model})
-        logger.info("index run %s: %d postings, %s", run_id, len(stale), embedder.model)
-        chunks = 0
-        try:
+        params = {"stale": len(stale), "model": embedder.model}
+        # run_ledger records `failed` on an error and `interrupted` on Ctrl-C or a kill.
+        with run_ledger(engine, Pipeline.INDEX, trigger, params) as run_id:
+            logger.info("index run %s: %d postings, %s", run_id, len(stale), embedder.model)
+            chunks = 0
             for start in range(0, len(stale), BATCH_SIZE):
                 chunks += _index_batch(engine, embedder, run_id, stale[start : start + BATCH_SIZE])
                 done = min(start + BATCH_SIZE, len(stale))
                 logger.info("indexed %d/%d postings (%d chunks)", done, len(stale), chunks)
-        except Exception:
-            finish_run(engine, run_id, RunStatus.FAILED)
-            raise
-        finish_run(engine, run_id, RunStatus.SUCCEEDED)
-        return IndexResult(run_id, RunStatus.SUCCEEDED, len(stale), chunks)
+            finish_run(engine, run_id, RunStatus.SUCCEEDED)
+            return IndexResult(run_id, RunStatus.SUCCEEDED, len(stale), chunks)
 
 
 def _index_batch(engine: Engine, embedder: Embedder, run_id: uuid.UUID, batch: Sequence[StalePosting]) -> int:
